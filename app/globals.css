@@ -1,0 +1,74 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-slate-200;
+  }
+  body {
+    @apply bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 text-slate-900;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply bg-white/20 backdrop-blur-lg border border-white/30 shadow-xl;
+  }
+  
+  .glass-dark {
+    @apply bg-slate-900/20 backdrop-blur-lg border border-white/10 shadow-xl;
+  }
+  
+  .gradient-text {
+    @apply bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent;
+  }
+  
+  .btn-primary {
+    @apply bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-semibold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105;
+  }
+  
+  .btn-secondary {
+    @apply glass hover:bg-white/30 text-slate-700 font-semibold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105;
+  }
+  
+  .card {
+    @apply glass rounded-2xl p-6 hover:bg-white/30 transition-all duration-300;
+  }
+  
+  .floating-animation {
+    animation: float 6s ease-in-out infinite;
+  }
+  
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-20px); }
+  }
+  
+  .pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite alternate;
+  }
+  
+  @keyframes pulse-glow {
+    from { box-shadow: 0 0 20px rgba(16, 185, 129, 0.4); }
+    to { box-shadow: 0 0 30px rgba(16, 185, 129, 0.8); }
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-emerald-300/50 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-emerald-400/70;
+}

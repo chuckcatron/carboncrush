@@ -11,6 +11,9 @@ export interface User {
   carbonGoal?: number;
   joinDate: string;
   onboardingCompleted: boolean;
+  emailVerified: boolean;
+  subscribeNewsletter: boolean;
+  signupSource: string;
   preferences: {
     notifications: boolean;
     publicProfile: boolean;
@@ -22,10 +25,12 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  signup: (email: string, password: string, name: string) => Promise<{ success: boolean; error?: string }>;
+  signup: (email: string, password: string, name: string, metadata?: any) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   updateProfile: (updates: Partial<User>) => void;
   completeOnboarding: (data: Partial<User>) => void;
+  resendVerificationEmail: () => Promise<{ success: boolean; error?: string }>;
+  verifyEmail: (token: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -88,6 +93,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         carbonGoal: 2000,
         joinDate: new Date().toISOString(),
         onboardingCompleted: true,
+        emailVerified: true,
+        subscribeNewsletter: true,
+        signupSource: 'demo',
         preferences: {
           notifications: true,
           publicProfile: true,
@@ -104,28 +112,49 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return { success: false, error: 'Invalid email or password' };
   };
 
-  const signup = async (email: string, password: string, name: string): Promise<{ success: boolean; error?: string }> => {
+  const signup = async (
+    email: string, 
+    password: string, 
+    name: string, 
+    metadata: any = {}
+  ): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
     
     // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 1500));
     
+    // Enhanced email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setIsLoading(false);
+      return { success: false, error: 'Please enter a valid email address' };
+    }
+
+    // Enhanced password validation
+    if (password.length < 8) {
+      setIsLoading(false);
+      return { success: false, error: 'Password must be at least 8 characters long' };
+    }
+
     // Check if user already exists
     const storedUsers = JSON.parse(localStorage.getItem('carboncrush_users') || '[]');
-    const existingUser = storedUsers.find((u: any) => u.email === email);
+    const existingUser = storedUsers.find((u: any) => u.email.toLowerCase() === email.toLowerCase());
     
     if (existingUser) {
       setIsLoading(false);
-      return { success: false, error: 'User with this email already exists' };
+      return { success: false, error: 'An account with this email already exists' };
     }
     
-    // Create new user
+    // Create new user with enhanced data
     const newUser: User = {
-      id: `user-${Date.now()}`,
-      email,
-      name,
+      id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      email: email.toLowerCase(),
+      name: name.trim(),
       joinDate: new Date().toISOString(),
       onboardingCompleted: false,
+      emailVerified: false, // In real app, would be false until verified
+      subscribeNewsletter: metadata.subscribeNewsletter || false,
+      signupSource: metadata.signupSource || 'web',
       preferences: {
         notifications: true,
         publicProfile: false,
@@ -141,6 +170,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Set current user (without password)
     setUser(newUser);
     localStorage.setItem('carboncrush_user', JSON.stringify(newUser));
+    
+    // Simulate sending verification email
+    console.log('📧 Verification email sent to:', email);
     
     setIsLoading(false);
     return { success: true };
@@ -171,6 +203,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     updateProfile({ ...data, onboardingCompleted: true });
   };
 
+  const resendVerificationEmail = async (): Promise<{ success: boolean; error?: string }> => {
+    if (!user) return { success: false, error: 'No user logged in' };
+    
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    console.log('📧 Verification email resent to:', user.email);
+    return { success: true };
+  };
+
+  const verifyEmail = async (token: string): Promise<{ success: boolean; error?: string }> => {
+    if (!user) return { success: false, error: 'No user logged in' };
+    
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // In real app, would validate token with backend
+    updateProfile({ emailVerified: true });
+    return { success: true };
+  };
+
   const value: AuthContextType = {
     user,
     isLoading,
@@ -178,7 +231,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signup,
     logout,
     updateProfile,
-    completeOnboarding
+    completeOnboarding,
+    resendVerificationEmail,
+    verifyEmail
   };
 
   return (

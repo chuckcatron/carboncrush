@@ -28,6 +28,7 @@ import RewardsSystem from '@/components/RewardsSystem';
 import BusinessDirectory from '@/components/BusinessDirectory';
 import OnboardingFlow from '@/components/onboarding/OnboardingFlow';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import EmailVerificationBanner from '@/components/auth/EmailVerificationBanner';
 import BoltAttribution from '@/components/BoltAttribution';
 
 export default function MainApp() {
@@ -68,6 +69,9 @@ export default function MainApp() {
         {/* Bolt Attribution */}
         <BoltAttribution />
 
+        {/* Email Verification Banner */}
+        <EmailVerificationBanner />
+
         {/* Header */}
         <header className="glass sticky top-0 z-40 border-b border-white/20">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -104,6 +108,9 @@ export default function MainApp() {
                     <span className="text-sm font-medium text-slate-700 hidden md:block">
                       {user.name?.split(' ')[0]}
                     </span>
+                    {!user.emailVerified && (
+                      <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
+                    )}
                   </button>
                   
                   {/* Dropdown Menu */}

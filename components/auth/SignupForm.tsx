@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Mail, Lock, User, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Mail, Lock, User, Eye, EyeOff, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import toast from 'react-hot-toast';
 
@@ -15,38 +15,63 @@ export default function SignupForm({ onSwitchToLogin }: SignupFormProps) {
     name: '',
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    agreeToTerms: false,
+    subscribeNewsletter: true
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [passwordStrength, setPasswordStrength] = useState(0);
   const { signup, isLoading } = useAuth();
+
+  const calculatePasswordStrength = (password: string) => {
+    let strength = 0;
+    if (password.length >= 8) strength += 25;
+    if (/[A-Z]/.test(password)) strength += 25;
+    if (/[0-9]/.test(password)) strength += 25;
+    if (/[^A-Za-z0-9]/.test(password)) strength += 25;
+    return strength;
+  };
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
+    // Name validation
     if (!formData.name.trim()) {
       newErrors.name = 'Name is required';
     } else if (formData.name.trim().length < 2) {
       newErrors.name = 'Name must be at least 2 characters';
+    } else if (!/^[a-zA-Z\s]+$/.test(formData.name.trim())) {
+      newErrors.name = 'Name can only contain letters and spaces';
     }
 
+    // Email validation
     if (!formData.email) {
       newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = 'Please enter a valid email address';
     }
 
+    // Password validation
     if (!formData.password) {
       newErrors.password = 'Password is required';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+    } else if (formData.password.length < 8) {
+      newErrors.password = 'Password must be at least 8 characters';
+    } else if (passwordStrength < 75) {
+      newErrors.password = 'Password should include uppercase, lowercase, numbers, and special characters';
     }
 
+    // Confirm password validation
     if (!formData.confirmPassword) {
       newErrors.confirmPassword = 'Please confirm your password';
     } else if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match';
+    }
+
+    // Terms agreement validation
+    if (!formData.agreeToTerms) {
+      newErrors.agreeToTerms = 'You must agree to the Terms of Service and Privacy Policy';
     }
 
     setErrors(newErrors);
@@ -58,20 +83,45 @@ export default function SignupForm({ onSwitchToLogin }: SignupFormProps) {
     
     if (!validateForm()) return;
 
-    const result = await signup(formData.email, formData.password, formData.name);
+    const result = await signup(formData.email, formData.password, formData.name, {
+      subscribeNewsletter: formData.subscribeNewsletter,
+      signupSource: 'web',
+      signupDate: new Date().toISOString()
+    });
     
     if (result.success) {
-      toast.success('Account created successfully!');
+      toast.success('Account created successfully! Welcome to CarbonCrush! 🌱');
     } else {
       toast.error(result.error || 'Signup failed');
     }
   };
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    
+    // Clear errors for the field being edited
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
+
+    // Update password strength
+    if (field === 'password' && typeof value === 'string') {
+      setPasswordStrength(calculatePasswordStrength(value));
+    }
+  };
+
+  const getPasswordStrengthColor = () => {
+    if (passwordStrength < 25) return 'bg-red-500';
+    if (passwordStrength < 50) return 'bg-orange-500';
+    if (passwordStrength < 75) return 'bg-yellow-500';
+    return 'bg-green-500';
+  };
+
+  const getPasswordStrengthText = () => {
+    if (passwordStrength < 25) return 'Weak';
+    if (passwordStrength < 50) return 'Fair';
+    if (passwordStrength < 75) return 'Good';
+    return 'Strong';
   };
 
   return (
@@ -91,7 +141,7 @@ export default function SignupForm({ onSwitchToLogin }: SignupFormProps) {
           {/* Name Field */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
-              Full Name
+              Full Name *
             </label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -109,14 +159,17 @@ export default function SignupForm({ onSwitchToLogin }: SignupFormProps) {
               />
             </div>
             {errors.name && (
-              <p className="mt-1 text-sm text-red-600">{errors.name}</p>
+              <p className="mt-1 text-sm text-red-600 flex items-center space-x-1">
+                <AlertCircle className="w-4 h-4" />
+                <span>{errors.name}</span>
+              </p>
             )}
           </div>
 
           {/* Email Field */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
-              Email Address
+              Email Address *
             </label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -134,14 +187,17 @@ export default function SignupForm({ onSwitchToLogin }: SignupFormProps) {
               />
             </div>
             {errors.email && (
-              <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+              <p className="mt-1 text-sm text-red-600 flex items-center space-x-1">
+                <AlertCircle className="w-4 h-4" />
+                <span>{errors.email}</span>
+              </p>
             )}
           </div>
 
           {/* Password Field */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
-              Password
+              Password *
             </label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -154,7 +210,7 @@ export default function SignupForm({ onSwitchToLogin }: SignupFormProps) {
                     ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
                     : 'border-white/30 focus:ring-emerald-500 focus:border-emerald-500'
                 }`}
-                placeholder="Create a password"
+                placeholder="Create a strong password"
                 disabled={isLoading}
               />
               <button
@@ -166,15 +222,40 @@ export default function SignupForm({ onSwitchToLogin }: SignupFormProps) {
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
+            
+            {/* Password Strength Indicator */}
+            {formData.password && (
+              <div className="mt-2">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-slate-600">Password strength:</span>
+                  <span className={`text-xs font-medium ${
+                    passwordStrength >= 75 ? 'text-green-600' : 
+                    passwordStrength >= 50 ? 'text-yellow-600' : 'text-red-600'
+                  }`}>
+                    {getPasswordStrengthText()}
+                  </span>
+                </div>
+                <div className="w-full bg-slate-200 rounded-full h-2">
+                  <div 
+                    className={`h-2 rounded-full transition-all duration-300 ${getPasswordStrengthColor()}`}
+                    style={{ width: `${passwordStrength}%` }}
+                  />
+                </div>
+              </div>
+            )}
+            
             {errors.password && (
-              <p className="mt-1 text-sm text-red-600">{errors.password}</p>
+              <p className="mt-1 text-sm text-red-600 flex items-center space-x-1">
+                <AlertCircle className="w-4 h-4" />
+                <span>{errors.password}</span>
+              </p>
             )}
           </div>
 
           {/* Confirm Password Field */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
-              Confirm Password
+              Confirm Password *
             </label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -199,16 +280,70 @@ export default function SignupForm({ onSwitchToLogin }: SignupFormProps) {
                 {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
-            {errors.confirmPassword && (
-              <p className="mt-1 text-sm text-red-600">{errors.confirmPassword}</p>
+            {formData.confirmPassword && formData.password === formData.confirmPassword && (
+              <p className="mt-1 text-sm text-green-600 flex items-center space-x-1">
+                <CheckCircle className="w-4 h-4" />
+                <span>Passwords match</span>
+              </p>
             )}
+            {errors.confirmPassword && (
+              <p className="mt-1 text-sm text-red-600 flex items-center space-x-1">
+                <AlertCircle className="w-4 h-4" />
+                <span>{errors.confirmPassword}</span>
+              </p>
+            )}
+          </div>
+
+          {/* Terms Agreement */}
+          <div className="space-y-3">
+            <div className="flex items-start space-x-3">
+              <input
+                type="checkbox"
+                id="agreeToTerms"
+                checked={formData.agreeToTerms}
+                onChange={(e) => handleInputChange('agreeToTerms', e.target.checked)}
+                className="w-5 h-5 text-emerald-600 bg-white border-gray-300 rounded focus:ring-emerald-500 focus:ring-2 mt-0.5"
+                disabled={isLoading}
+              />
+              <label htmlFor="agreeToTerms" className="text-sm text-slate-700">
+                I agree to the{' '}
+                <a href="/terms" className="text-emerald-600 hover:text-emerald-700 font-medium">
+                  Terms of Service
+                </a>{' '}
+                and{' '}
+                <a href="/privacy" className="text-emerald-600 hover:text-emerald-700 font-medium">
+                  Privacy Policy
+                </a>
+                <span className="text-red-500 ml-1">*</span>
+              </label>
+            </div>
+            {errors.agreeToTerms && (
+              <p className="text-sm text-red-600 flex items-center space-x-1">
+                <AlertCircle className="w-4 h-4" />
+                <span>{errors.agreeToTerms}</span>
+              </p>
+            )}
+
+            <div className="flex items-start space-x-3">
+              <input
+                type="checkbox"
+                id="subscribeNewsletter"
+                checked={formData.subscribeNewsletter}
+                onChange={(e) => handleInputChange('subscribeNewsletter', e.target.checked)}
+                className="w-5 h-5 text-emerald-600 bg-white border-gray-300 rounded focus:ring-emerald-500 focus:ring-2 mt-0.5"
+                disabled={isLoading}
+              />
+              <label htmlFor="subscribeNewsletter" className="text-sm text-slate-700">
+                Send me climate tips and updates (optional)
+              </label>
+            </div>
           </div>
 
           {/* Submit Button */}
           <button
             type="submit"
-            disabled={isLoading}
-            className="w-full btn-primary flex items-center justify-center space-x-2"
+            disabled={isLoading || !formData.agreeToTerms}
+            className="w-full btn-primary flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? (
               <>

@@ -85,12 +85,11 @@ export default function SignupForm({ onSwitchToLogin }: SignupFormProps) {
 
     const result = await signup(formData.email, formData.password, formData.name, {
       subscribeNewsletter: formData.subscribeNewsletter,
-      signupSource: 'web',
-      signupDate: new Date().toISOString()
+      signupSource: 'web'
     });
     
     if (result.success) {
-      toast.success('Account created successfully! Welcome to CarbonCrush! 🌱');
+      toast.success('Account created! Please check your email to verify your account. 🌱');
     } else {
       toast.error(result.error || 'Signup failed');
     }

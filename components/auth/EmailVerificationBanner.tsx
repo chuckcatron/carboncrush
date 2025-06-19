@@ -2,16 +2,17 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, X, RefreshCw, CheckCircle } from 'lucide-react';
+import { Mail, X, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import toast from 'react-hot-toast';
 
 export default function EmailVerificationBanner() {
-  const { user, resendVerificationEmail } = useAuth();
+  const { user, session, resendVerificationEmail } = useAuth();
   const [isVisible, setIsVisible] = useState(true);
   const [isResending, setIsResending] = useState(false);
 
-  if (!user || user.emailVerified || !isVisible) {
+  // Show banner if user exists, email is not verified, and banner is visible
+  if (!user || !session || user.email_verified || !isVisible) {
     return null;
   }
 

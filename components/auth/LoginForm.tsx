@@ -31,8 +31,6 @@ export default function LoginForm({ onSwitchToSignup, onForgotPassword }: LoginF
 
     if (!formData.password) {
       newErrors.password = 'Password is required';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
     }
 
     setErrors(newErrors);
@@ -47,7 +45,7 @@ export default function LoginForm({ onSwitchToSignup, onForgotPassword }: LoginF
     const result = await login(formData.email, formData.password);
     
     if (result.success) {
-      toast.success('Welcome back!');
+      toast.success('Welcome back! 🌱');
     } else {
       toast.error(result.error || 'Login failed');
     }
@@ -160,15 +158,6 @@ export default function LoginForm({ onSwitchToSignup, onForgotPassword }: LoginF
             )}
           </button>
         </form>
-
-        {/* Demo Account Info */}
-        <div className="mt-6 p-3 bg-blue-50 rounded-lg border border-blue-200">
-          <p className="text-sm text-blue-700 font-medium mb-1">Demo Account:</p>
-          <p className="text-xs text-blue-600">
-            Email: demo@carboncrush.com<br />
-            Password: demo123
-          </p>
-        </div>
 
         {/* Switch to Signup */}
         <div className="mt-6 text-center">

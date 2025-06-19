@@ -1,36 +1,27 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { User as SupabaseUser, Session } from '@supabase/supabase-js';
+import { createSupabaseClient } from '@/lib/supabase';
+import { Database } from '@/lib/supabase';
+import toast from 'react-hot-toast';
 
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  location?: string;
-  profilePicture?: string;
-  carbonGoal?: number;
-  joinDate: string;
-  onboardingCompleted: boolean;
-  emailVerified: boolean;
-  subscribeNewsletter: boolean;
-  signupSource: string;
-  preferences: {
-    notifications: boolean;
-    publicProfile: boolean;
-    shareProgress: boolean;
-  };
+type Profile = Database['public']['Tables']['profiles']['Row'];
+
+export interface User extends Profile {
+  // Add any additional user properties here
 }
 
 interface AuthContextType {
   user: User | null;
+  session: Session | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signup: (email: string, password: string, name: string, metadata?: any) => Promise<{ success: boolean; error?: string }>;
-  logout: () => void;
-  updateProfile: (updates: Partial<User>) => void;
-  completeOnboarding: (data: Partial<User>) => void;
+  logout: () => Promise<void>;
+  updateProfile: (updates: Partial<User>) => Promise<void>;
+  completeOnboarding: (data: Partial<User>) => Promise<void>;
   resendVerificationEmail: () => Promise<{ success: boolean; error?: string }>;
-  verifyEmail: (token: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -49,67 +40,122 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const supabase = createSupabaseClient();
 
   useEffect(() => {
-    // Check for existing user session on mount
-    const storedUser = localStorage.getItem('carboncrush_user');
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (error) {
-        console.error('Error parsing stored user:', error);
-        localStorage.removeItem('carboncrush_user');
+    // Get initial session
+    const getInitialSession = async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.error('Error getting session:', error);
+      } else {
+        setSession(session);
+        if (session?.user) {
+          await fetchUserProfile(session.user.id);
+        }
       }
-    }
-    setIsLoading(false);
+      setIsLoading(false);
+    };
+
+    getInitialSession();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setSession(session);
+        
+        if (session?.user) {
+          await fetchUserProfile(session.user.id);
+        } else {
+          setUser(null);
+        }
+        
+        setIsLoading(false);
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    setIsLoading(true);
-    
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Mock authentication - check against stored users or use demo account
-    const storedUsers = JSON.parse(localStorage.getItem('carboncrush_users') || '[]');
-    const existingUser = storedUsers.find((u: any) => u.email === email);
-    
-    if (existingUser && existingUser.password === password) {
-      const { password: _, ...userWithoutPassword } = existingUser;
-      setUser(userWithoutPassword);
-      localStorage.setItem('carboncrush_user', JSON.stringify(userWithoutPassword));
-      setIsLoading(false);
-      return { success: true };
+  const fetchUserProfile = async (userId: string) => {
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching profile:', error);
+        return;
+      }
+
+      setUser(profile);
+    } catch (error) {
+      console.error('Error in fetchUserProfile:', error);
     }
-    
-    // Demo account for testing
-    if (email === 'demo@carboncrush.com' && password === 'demo123') {
-      const demoUser: User = {
-        id: 'demo-user',
-        email: 'demo@carboncrush.com',
-        name: 'Alex Green',
-        location: 'San Francisco, CA',
-        carbonGoal: 2000,
-        joinDate: new Date().toISOString(),
-        onboardingCompleted: true,
-        emailVerified: true,
-        subscribeNewsletter: true,
-        signupSource: 'demo',
+  };
+
+  const createUserProfile = async (user: SupabaseUser, additionalData: any = {}) => {
+    try {
+      const profileData = {
+        id: user.id,
+        email: user.email!,
+        name: additionalData.name || user.user_metadata?.name || '',
+        location: additionalData.location || null,
+        carbon_goal: additionalData.carbonGoal || 2000,
+        onboarding_completed: false,
+        email_verified: user.email_confirmed_at ? true : false,
+        subscribe_newsletter: additionalData.subscribeNewsletter || false,
+        signup_source: additionalData.signupSource || 'web',
+        avatar_url: user.user_metadata?.avatar_url || null,
         preferences: {
           notifications: true,
-          publicProfile: true,
-          shareProgress: true
+          public_profile: false,
+          share_progress: false
         }
       };
-      setUser(demoUser);
-      localStorage.setItem('carboncrush_user', JSON.stringify(demoUser));
-      setIsLoading(false);
-      return { success: true };
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .insert(profileData)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating profile:', error);
+        return null;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error in createUserProfile:', error);
+      return null;
     }
-    
-    setIsLoading(false);
-    return { success: false, error: 'Invalid email or password' };
+  };
+
+  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      setIsLoading(true);
+      
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: 'An unexpected error occurred' };
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const signup = async (
@@ -118,122 +164,111 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     name: string, 
     metadata: any = {}
   ): Promise<{ success: boolean; error?: string }> => {
-    setIsLoading(true);
-    
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // Enhanced email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setIsLoading(false);
-      return { success: false, error: 'Please enter a valid email address' };
-    }
+    try {
+      setIsLoading(true);
 
-    // Enhanced password validation
-    if (password.length < 8) {
-      setIsLoading(false);
-      return { success: false, error: 'Password must be at least 8 characters long' };
-    }
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name,
+            ...metadata
+          }
+        }
+      });
 
-    // Check if user already exists
-    const storedUsers = JSON.parse(localStorage.getItem('carboncrush_users') || '[]');
-    const existingUser = storedUsers.find((u: any) => u.email.toLowerCase() === email.toLowerCase());
-    
-    if (existingUser) {
-      setIsLoading(false);
-      return { success: false, error: 'An account with this email already exists' };
-    }
-    
-    // Create new user with enhanced data
-    const newUser: User = {
-      id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      email: email.toLowerCase(),
-      name: name.trim(),
-      joinDate: new Date().toISOString(),
-      onboardingCompleted: false,
-      emailVerified: false, // In real app, would be false until verified
-      subscribeNewsletter: metadata.subscribeNewsletter || false,
-      signupSource: metadata.signupSource || 'web',
-      preferences: {
-        notifications: true,
-        publicProfile: false,
-        shareProgress: false
+      if (error) {
+        return { success: false, error: error.message };
       }
-    };
-    
-    // Store user with password for mock authentication
-    const userWithPassword = { ...newUser, password };
-    storedUsers.push(userWithPassword);
-    localStorage.setItem('carboncrush_users', JSON.stringify(storedUsers));
-    
-    // Set current user (without password)
-    setUser(newUser);
-    localStorage.setItem('carboncrush_user', JSON.stringify(newUser));
-    
-    // Simulate sending verification email
-    console.log('📧 Verification email sent to:', email);
-    
-    setIsLoading(false);
-    return { success: true };
-  };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('carboncrush_user');
-  };
+      if (data.user) {
+        // Create user profile
+        await createUserProfile(data.user, { name, ...metadata });
+      }
 
-  const updateProfile = (updates: Partial<User>) => {
-    if (!user) return;
-    
-    const updatedUser = { ...user, ...updates };
-    setUser(updatedUser);
-    localStorage.setItem('carboncrush_user', JSON.stringify(updatedUser));
-    
-    // Update in users array too
-    const storedUsers = JSON.parse(localStorage.getItem('carboncrush_users') || '[]');
-    const userIndex = storedUsers.findIndex((u: any) => u.id === user.id);
-    if (userIndex !== -1) {
-      storedUsers[userIndex] = { ...storedUsers[userIndex], ...updates };
-      localStorage.setItem('carboncrush_users', JSON.stringify(storedUsers));
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: 'An unexpected error occurred' };
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const completeOnboarding = (data: Partial<User>) => {
-    updateProfile({ ...data, onboardingCompleted: true });
+  const logout = async (): Promise<void> => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Error signing out:', error);
+        toast.error('Error signing out');
+      }
+    } catch (error) {
+      console.error('Error in logout:', error);
+    }
+  };
+
+  const updateProfile = async (updates: Partial<User>): Promise<void> => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+
+      if (error) {
+        console.error('Error updating profile:', error);
+        toast.error('Failed to update profile');
+        return;
+      }
+
+      // Update local user state
+      setUser(prev => prev ? { ...prev, ...updates } : null);
+      toast.success('Profile updated successfully');
+    } catch (error) {
+      console.error('Error in updateProfile:', error);
+      toast.error('Failed to update profile');
+    }
+  };
+
+  const completeOnboarding = async (data: Partial<User>): Promise<void> => {
+    await updateProfile({ ...data, onboarding_completed: true });
   };
 
   const resendVerificationEmail = async (): Promise<{ success: boolean; error?: string }> => {
-    if (!user) return { success: false, error: 'No user logged in' };
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    console.log('📧 Verification email resent to:', user.email);
-    return { success: true };
-  };
+    if (!session?.user?.email) {
+      return { success: false, error: 'No user email found' };
+    }
 
-  const verifyEmail = async (token: string): Promise<{ success: boolean; error?: string }> => {
-    if (!user) return { success: false, error: 'No user logged in' };
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // In real app, would validate token with backend
-    updateProfile({ emailVerified: true });
-    return { success: true };
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: session.user.email
+      });
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: 'Failed to resend verification email' };
+    }
   };
 
   const value: AuthContextType = {
     user,
+    session,
     isLoading,
     login,
     signup,
     logout,
     updateProfile,
     completeOnboarding,
-    resendVerificationEmail,
-    verifyEmail
+    resendVerificationEmail
   };
 
   return (

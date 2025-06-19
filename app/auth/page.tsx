@@ -6,12 +6,16 @@ import { Leaf } from 'lucide-react';
 import LoginForm from '@/components/auth/LoginForm';
 import SignupForm from '@/components/auth/SignupForm';
 import ForgotPasswordForm from '@/components/auth/ForgotPasswordForm';
+import BoltAttribution from '@/components/BoltAttribution';
 
 export default function AuthPage() {
   const [currentView, setCurrentView] = useState<'login' | 'signup' | 'forgot'>('login');
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 flex items-center justify-center p-4">
+      {/* Bolt Attribution */}
+      <BoltAttribution />
+
       <div className="w-full max-w-md">
         {/* Logo */}
         <motion.div

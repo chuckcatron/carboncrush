@@ -14,8 +14,8 @@ A gamified platform that makes climate action fun, social, and rewarding. Track 
 ## 🚀 Tech Stack
 
 - **Frontend**: Next.js 13, React, TypeScript, Tailwind CSS
-- **Authentication**: Supabase Auth
-- **Database**: Supabase (PostgreSQL)
+- **Authentication**: NextAuth.js
+- **Database**: Neon (PostgreSQL) with Drizzle ORM
 - **AI**: OpenAI GPT-3.5 Turbo
 - **Animations**: Framer Motion
 - **Charts**: Chart.js with React Chart.js 2
@@ -27,7 +27,7 @@ A gamified platform that makes climate action fun, social, and rewarding. Track 
 ### Prerequisites
 
 - Node.js 18+ and npm
-- Supabase account
+- Neon database account
 - OpenAI API key
 
 ### 1. Clone and Install
@@ -38,14 +38,14 @@ cd carbon-crush
 npm install
 ```
 
-### 2. Supabase Setup
+### 2. Neon Database Setup
 
-1. Create a new project at [supabase.com](https://supabase.com)
-2. Go to Settings > API to get your project URL and anon key
+1. Create a new project at [neon.tech](https://neon.tech)
+2. Get your database connection string from the dashboard
 3. Run the database migration:
    ```bash
-   # Copy the SQL from supabase/migrations/001_initial_schema.sql
-   # and run it in your Supabase SQL editor
+   npm run db:generate
+   npm run db:migrate
    ```
 
 ### 3. Environment Variables
@@ -53,27 +53,18 @@ npm install
 Create a `.env.local` file:
 
 ```env
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+# Database
+DATABASE_URL="postgresql://username:password@host:port/database?sslmode=require"
+
+# NextAuth
+NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_SECRET="your-secret-key-here"
 
 # OpenAI
-OPENAI_API_KEY=your_openai_api_key
+OPENAI_API_KEY="your-openai-api-key"
 ```
 
-### 4. Configure Supabase Auth
-
-In your Supabase dashboard:
-
-1. Go to Authentication > Settings
-2. Set Site URL to `http://localhost:3000`
-3. Add redirect URLs:
-   - `http://localhost:3000/auth/callback`
-   - `https://yourdomain.com/auth/callback` (for production)
-4. Configure email templates (optional)
-
-### 5. Run the Application
+### 4. Run the Application
 
 ```bash
 npm run dev
@@ -85,23 +76,23 @@ Open [http://localhost:3000](http://localhost:3000) to see the application.
 
 ### Tables
 
-- **profiles**: User profiles with preferences and carbon goals
+- **users**: User profiles with preferences and carbon goals
 - **carbon_calculations**: Historical carbon footprint calculations
 - **recommendations**: AI-generated recommendations and their status
 
 ### Key Features
 
-- Row Level Security (RLS) enabled on all tables
+- PostgreSQL with Drizzle ORM
+- Type-safe database operations
 - Automatic timestamp handling
-- Optimized indexes for performance
 - Foreign key constraints for data integrity
 
 ## 🔐 Authentication Flow
 
-1. **Signup**: Users create accounts with email verification
+1. **Signup**: Users create accounts with email/password
 2. **Onboarding**: New users complete profile setup
-3. **Session Management**: Automatic session handling with Supabase
-4. **Profile Sync**: User data synced between auth and profiles table
+3. **Session Management**: JWT-based sessions with NextAuth.js
+4. **Profile Sync**: User data managed through API routes
 
 ## 🤖 AI Recommendations
 
@@ -125,7 +116,7 @@ The AI recommendation system:
 
 CarbonCrush is built with sustainability in mind:
 
-- Hosted on renewable energy (Supabase)
+- Hosted on renewable energy (Neon)
 - Optimized for performance to reduce energy consumption
 - Promotes real-world climate action
 - Partners with eco-friendly businesses
@@ -141,10 +132,10 @@ CarbonCrush is built with sustainability in mind:
 ### Environment Variables for Production
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=your_production_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_production_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_production_service_role_key
-OPENAI_API_KEY=your_openai_api_key
+DATABASE_URL="your_production_neon_database_url"
+NEXTAUTH_URL="https://yourdomain.com"
+NEXTAUTH_SECRET="your_production_secret"
+OPENAI_API_KEY="your_openai_api_key"
 ```
 
 ## 🤝 Contributing
@@ -162,7 +153,7 @@ This project is licensed under the MIT License.
 ## 🙏 Acknowledgments
 
 - Built with [bolt.new](https://bolt.new) - AI-powered development platform
-- Powered by [Supabase](https://supabase.com) for backend services
+- Powered by [Neon](https://neon.tech) for database services
 - AI recommendations by [OpenAI](https://openai.com)
 - Icons by [Lucide](https://lucide.dev)
 - Images from [Pexels](https://pexels.com)

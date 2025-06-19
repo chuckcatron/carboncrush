@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
 export async function POST(request: NextRequest) {
@@ -33,8 +33,7 @@ export async function POST(request: NextRequest) {
 }
 
 async function generateAIRecommendations(carbonData: any, results: any, userProfile: any) {
-  const prompt = `
-You are an expert climate advisor helping someone reduce their carbon footprint. Analyze their data and provide personalized recommendations.
+  const prompt = `You are an expert climate advisor helping someone reduce their carbon footprint. Analyze their data and provide personalized recommendations.
 
 User Profile:
 - Location: ${userProfile?.location || 'Not specified'}
@@ -88,23 +87,27 @@ Please provide exactly 6 recommendations in this JSON format:
   ]
 }
 
-Focus on the highest impact categories first. Make recommendations specific, achievable, and personalized to their situation. Include cost savings when applicable.
-`;
+Focus on the highest impact categories first. Make recommendations specific, achievable, and personalized to their situation. Include cost savings when applicable.`;
 
-  const completion = await openai.chat.completions.create({
-    model: "gpt-3.5-turbo",
-    messages: [{ role: "user", content: prompt }],
-    temperature: 0.7,
+  const message = await anthropic.messages.create({
+    model: "claude-3-sonnet-20240229",
     max_tokens: 2000,
+    temperature: 0.7,
+    messages: [
+      {
+        role: "user",
+        content: prompt
+      }
+    ]
   });
 
-  const response = completion.choices[0]?.message?.content;
-  if (!response) {
-    throw new Error('No response from OpenAI');
+  const response = message.content[0];
+  if (response.type !== 'text') {
+    throw new Error('Unexpected response type from Claude');
   }
 
   try {
-    const parsed = JSON.parse(response);
+    const parsed = JSON.parse(response.text);
     return parsed.recommendations;
   } catch (parseError) {
     console.error('Error parsing AI response:', parseError);

@@ -1,5 +1,6 @@
-import { neon } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-http';
+import { createClient } from '@supabase/supabase-js';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
 import * as schema from './schema';
 
 // Debug environment variable loading
@@ -10,13 +11,15 @@ if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL environment variable is required');
 }
 
-const sql = neon(process.env.DATABASE_URL);
-export const db = drizzle(sql, { schema });
+// Create postgres connection for Drizzle
+const connectionString = process.env.DATABASE_URL;
+const client = postgres(connectionString, { prepare: false });
+export const db = drizzle(client, { schema });
 
 // Test connection
 export async function testConnection() {
   try {
-    const result = await sql`SELECT 1 as test`;
+    const result = await client`SELECT 1 as test`;
     console.log('Database connection successful:', result);
     return true;
   } catch (error) {

@@ -7,9 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "db:generate": "drizzle-kit generate:pg",
-    "db:migrate": "drizzle-kit push:pg",
-    "db:studio": "drizzle-kit studio"
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
+    "db:check": "node -e \"require('dotenv').config({path:'.env.local'}); console.log('DATABASE_URL:', !!process.env.DATABASE_URL)\""
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.24.3",

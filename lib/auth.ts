@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import { db } from './db';
 import { users } from './schema';
 import { eq } from 'drizzle-orm';
+import { createClient } from '@supabase/supabase-js';
 
 export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
@@ -23,15 +24,41 @@ export const authOptions: NextAuthOptions = {
         try {
           console.log('Attempting login for:', credentials.email);
           
-          // Add timeout and better error handling for database connection
-          const user = await Promise.race([
-            db.select().from(users).where(eq(users.email, credentials.email.toLowerCase())).limit(1),
-            new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Database query timeout')), 10000)
-            )
-          ]) as any[];
+          // Check if we're in Bolt environment and use Supabase directly
+          const isBolt = typeof process !== 'undefined' && process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_SUPABASE_URL;
           
-          if (!user.length) {
+          let user;
+          
+          if (isBolt && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+            // Use Supabase client in Bolt environment
+            const supabase = createClient(
+              process.env.NEXT_PUBLIC_SUPABASE_URL,
+              process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+            );
+            
+            const { data, error } = await supabase
+              .from('users')
+              .select('*')
+              .eq('email', credentials.email.toLowerCase())
+              .single();
+            
+            if (error || !data) {
+              console.log('User not found via Supabase');
+              return null;
+            }
+            
+            user = [data];
+          } else {
+            // Use Drizzle ORM for local development
+            user = await Promise.race([
+              db.select().from(users).where(eq(users.email, credentials.email.toLowerCase())).limit(1),
+              new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Database query timeout')), 10000)
+              )
+            ]) as any[];
+          }
+          
+          if (!user || !user.length) {
             console.log('User not found');
             return null;
           }

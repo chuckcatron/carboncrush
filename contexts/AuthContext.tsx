@@ -236,23 +236,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update profile');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to update profile');
       }
 
       const updatedUser = await response.json();
       setUser(updatedUser);
       
-      // Update the session if onboarding status changed
-      if (updates.onboardingCompleted !== undefined) {
-        await update({
-          onboardingCompleted: updates.onboardingCompleted
-        });
+      // Update session based on environment
+      if (isBoltEnv) {
+        setCustomSession({ user: updatedUser });
+      } else {
+        // Update the session if onboarding status changed
+        if (updates.onboardingCompleted !== undefined) {
+          await update({
+            onboardingCompleted: updates.onboardingCompleted
+          });
+        }
       }
       
       toast.success('Profile updated successfully');
     } catch (error) {
       console.error('Error updating profile:', error);
-      toast.error('Failed to update profile');
+      toast.error(error instanceof Error ? error.message : 'Failed to update profile');
     }
   };
 

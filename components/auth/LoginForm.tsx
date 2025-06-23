@@ -39,7 +39,7 @@ export default function LoginForm({ onSwitchToSignup, onForgotPassword }: LoginF
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    console.log('submit pressed');
     if (!validateForm()) return;
 
     const result = await login(formData.email, formData.password);

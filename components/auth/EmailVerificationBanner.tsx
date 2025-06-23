@@ -12,7 +12,7 @@ export default function EmailVerificationBanner() {
   const [isResending, setIsResending] = useState(false);
 
   // Show banner if user exists, email is not verified, and banner is visible
-  if (!user || !session || user.email_verified || !isVisible) {
+  if (!user || !session || user.emailVerified || !isVisible) {
     return null;
   }
 

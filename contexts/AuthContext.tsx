@@ -191,8 +191,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const resendVerificationEmail = async (): Promise<{ success: boolean; error?: string }> => {
-    // Implement email verification logic here
-    return { success: true };
+    try {
+      const response = await fetch('/api/auth/send-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return { success: false, error: data.error || 'Failed to send verification email' };
+      }
+
+      toast.success('Verification email sent!');
+      return { success: true };
+    } catch (error) {
+      console.error('Error sending verification email:', error);
+      return { success: false, error: 'Failed to send verification email' };
+    }
   };
 
   const value: AuthContextType = {

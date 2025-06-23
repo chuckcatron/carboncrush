@@ -17,12 +17,9 @@ export default function AuthPage() {
 
   useEffect(() => {
     if (!isLoading && session) {
-      // User is logged in, redirect to appropriate page
-      if (user?.onboardingCompleted) {
-        router.push('/main');
-      } else {
-        router.push('/onboarding');
-      }
+      // User is logged in, redirect to main page
+      // The main page will handle onboarding flow if not completed
+      router.push('/main');
     }
   }, [session, user, isLoading, router]);
 

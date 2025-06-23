@@ -224,10 +224,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const updateProfile = async (updates: Partial<User>): Promise<void> => {
-    if (!user) return;
+    if (!user) {
+      console.error('No user available for profile update');
+      return;
+    }
 
     try {
       console.log('Updating profile for user:', user.id, 'with updates:', updates);
+      console.log('Current isBoltEnv:', isBoltEnv);
       
       const response = await fetch(`/api/user/${user.id}`, {
         method: 'PATCH',
@@ -238,6 +242,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
 
       console.log('Profile update response status:', response.status);
+      console.log('Profile update response URL:', response.url);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));

@@ -16,9 +16,11 @@ export default function AuthPage() {
   const router = useRouter();
 
   useEffect(() => {
+    console.log('Auth page - isLoading:', isLoading, 'session:', !!session, 'user:', !!user);
     if (!isLoading && session) {
       // User is logged in, redirect to main page
       // The main page will handle onboarding flow if not completed
+      console.log('Redirecting to /main');
       router.push('/main');
     }
   }, [session, user, isLoading, router]);

@@ -227,6 +227,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     if (!user) return;
 
     try {
+      console.log('Updating profile for user:', user.id, 'with updates:', updates);
+      
       const response = await fetch(`/api/user/${user.id}`, {
         method: 'PATCH',
         headers: {
@@ -235,8 +237,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         body: JSON.stringify(updates),
       });
 
+      console.log('Profile update response status:', response.status);
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        console.error('Profile update failed:', errorData);
         throw new Error(errorData.error || 'Failed to update profile');
       }
 

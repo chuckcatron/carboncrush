@@ -98,8 +98,11 @@ export const authOptions: NextAuthOptions = {
   },
   callbacks: {
     async jwt({ token, user, trigger, session }) {
+      console.log('JWT callback - user:', !!user, 'token:', !!token);
       if (user) {
         token.id = user.id;
+        token.email = user.email;
+        token.name = user.name;
         token.emailVerified = user.emailVerified;
         token.onboardingCompleted = user.onboardingCompleted;
       }
@@ -112,10 +115,15 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
     async session({ session, token }) {
-      if (token) {
-        session.user.id = token.id as string;
-        session.user.emailVerified = token.emailVerified as boolean;
-        session.user.onboardingCompleted = token.onboardingCompleted as boolean;
+      console.log('Session callback - session:', !!session, 'token:', !!token);
+      if (token && token.email) {
+        session.user = {
+          id: token.id as string,
+          email: token.email as string,
+          name: token.name as string,
+          emailVerified: token.emailVerified as boolean,
+          onboardingCompleted: token.onboardingCompleted as boolean,
+        };
       }
       return session;
     },

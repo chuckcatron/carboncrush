@@ -17,7 +17,8 @@ export default function AuthPage() {
 
   useEffect(() => {
     console.log('Auth page - isLoading:', isLoading, 'session:', !!session, 'user:', !!user);
-    if (!isLoading && session) {
+    // Only redirect if we have both a session AND a user
+    if (!isLoading && session && session.user) {
       // User is logged in, redirect to main page
       // The main page will handle onboarding flow if not completed
       console.log('Redirecting to /main');

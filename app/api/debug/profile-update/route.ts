@@ -50,10 +50,32 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Map camelCase to snake_case for updates
+    const columnMapping: Record<string, string> = {
+      onboardingCompleted: 'onboarding_completed',
+      emailVerified: 'email_verified',
+      subscribeNewsletter: 'subscribe_newsletter',
+      signupSource: 'signup_source',
+      avatarUrl: 'avatar_url',
+      carbonGoal: 'carbon_goal',
+    };
+
+    const supabaseUpdates: Record<string, any> = {
+      updated_at: new Date().toISOString()
+    };
+
+    // Convert camelCase to snake_case
+    Object.entries(updates).forEach(([key, value]) => {
+      const dbColumn = columnMapping[key] || key;
+      if (key !== 'updatedAt') {
+        supabaseUpdates[dbColumn] = value;
+      }
+    });
+
     // Try to update the user
     const { data: updatedUser, error: updateError } = await supabase
       .from('users')
-      .update({ ...updates, updatedAt: new Date().toISOString() })
+      .update(supabaseUpdates)
       .eq('id', userId)
       .select('*')
       .single();

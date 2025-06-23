@@ -32,7 +32,7 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const { data: session, status } = useSession();
+  const { data: session, status, update } = useSession();
   const [user, setUser] = useState<User | null>(null);
   const isLoading = status === 'loading';
 
@@ -147,6 +147,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       const updatedUser = await response.json();
       setUser(updatedUser);
+      
+      // Update the session if onboarding status changed
+      if (updates.onboardingCompleted !== undefined) {
+        await update({
+          onboardingCompleted: updates.onboardingCompleted
+        });
+      }
+      
       toast.success('Profile updated successfully');
     } catch (error) {
       console.error('Error updating profile:', error);

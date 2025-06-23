@@ -1,7 +1,6 @@
 import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import { db } from './db';
 import { users } from './schema';
 import { eq } from 'drizzle-orm';
@@ -30,7 +29,6 @@ export const authOptions: NextAuthOptions = {
           }
 
           console.log('User found, checking password');
-          console.log('Stored hash starts with:', user[0].password.substring(0, 10));
           
           const isPasswordValid = await bcrypt.compare(credentials.password, user[0].password);
           console.log('Password valid:', isPasswordValid);
@@ -57,17 +55,25 @@ export const authOptions: NextAuthOptions = {
   ],
   session: {
     strategy: 'jwt',
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   jwt: {
     secret: process.env.NEXTAUTH_SECRET,
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
         token.emailVerified = user.emailVerified;
         token.onboardingCompleted = user.onboardingCompleted;
       }
+      
+      // Handle session updates
+      if (trigger === 'update' && session) {
+        token = { ...token, ...session };
+      }
+      
       return token;
     },
     async session({ session, token }) {
@@ -82,7 +88,10 @@ export const authOptions: NextAuthOptions = {
   pages: {
     signIn: '/auth',
     signUp: '/auth',
+    error: '/auth',
   },
+  debug: process.env.NODE_ENV === 'development',
+  secret: process.env.NEXTAUTH_SECRET,
 };
 
 export async function hashPassword(password: string): Promise<string> {

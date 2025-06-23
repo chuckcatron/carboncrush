@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Leaf } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import LoginForm from '@/components/auth/LoginForm';
 import SignupForm from '@/components/auth/SignupForm';
 import ForgotPasswordForm from '@/components/auth/ForgotPasswordForm';
@@ -10,6 +12,19 @@ import BoltAttribution from '@/components/BoltAttribution';
 
 export default function AuthPage() {
   const [currentView, setCurrentView] = useState<'login' | 'signup' | 'forgot'>('login');
+  const { session, user, isLoading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isLoading && session) {
+      // User is logged in, redirect to appropriate page
+      if (user?.onboardingCompleted) {
+        router.push('/main');
+      } else {
+        router.push('/onboarding');
+      }
+    }
+  }, [session, user, isLoading, router]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 flex items-center justify-center p-4">

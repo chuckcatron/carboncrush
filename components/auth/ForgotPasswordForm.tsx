@@ -35,12 +35,27 @@ export default function ForgotPasswordForm({ onBackToLogin }: ForgotPasswordForm
     setIsLoading(true);
     setError('');
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    try {
+      const response = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
 
-    setIsLoading(false);
-    setIsSubmitted(true);
-    toast.success('Password reset instructions sent!');
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send reset email');
+      }
+
+      setIsSubmitted(true);
+      toast.success('Password reset instructions sent!');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+      toast.error('Failed to send reset email');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleInputChange = (value: string) => {

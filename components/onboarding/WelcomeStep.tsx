@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Leaf, Target, Users, Award } from 'lucide-react';
+import { Leaf, Target, Users, Award, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface WelcomeStepProps {

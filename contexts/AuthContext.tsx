@@ -59,18 +59,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
+      console.log('Attempting login with NextAuth...');
       const result = await signIn('credentials', {
         email,
         password,
         redirect: false,
       });
 
+      console.log('NextAuth result:', result);
+
       if (result?.error) {
         return { success: false, error: 'Invalid credentials' };
       }
 
-      return { success: true };
+      if (result?.ok) {
+        console.log('Login successful');
+        return { success: true };
+      }
+
+      return { success: false, error: 'Login failed' };
     } catch (error) {
+      console.error('Login error:', error);
       return { success: false, error: 'An unexpected error occurred' };
     }
   };

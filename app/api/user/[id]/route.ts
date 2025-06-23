@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { users } from '@/lib/schema';
@@ -10,9 +10,19 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    console.log('GET /api/user/[id] - User ID:', params.id);
+    
+    let session;
+    try {
+      session = await getServerSession(authOptions);
+      console.log('Session obtained:', !!session);
+    } catch (sessionError) {
+      console.error('Error getting session:', sessionError);
+      return NextResponse.json({ error: 'Session error' }, { status: 500 });
+    }
     
     if (!session || session.user.id !== params.id) {
+      console.log('Unauthorized access attempt');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -37,6 +47,8 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
+    console.log('PATCH /api/user/[id] - User ID:', params.id);
+    
     const session = await getServerSession(authOptions);
     
     if (!session || session.user.id !== params.id) {
@@ -44,13 +56,46 @@ export async function PATCH(
     }
 
     const updates = await request.json();
+    console.log('Update data received:', updates);
     
     // Remove sensitive fields that shouldn't be updated via this endpoint
-    const { password, id, createdAt, ...allowedUpdates } = updates;
+    const { password, id, createdAt, ...updateData } = updates;
+    
+    // Separate direct user fields from preference fields
+    const userFields = ['name', 'email', 'location', 'carbonGoal', 'onboardingCompleted', 'emailVerified', 'subscribeNewsletter', 'signupSource', 'avatarUrl'];
+    const directUpdates: any = {};
+    const preferenceUpdates: any = {};
+    
+    Object.entries(updateData).forEach(([key, value]) => {
+      if (userFields.includes(key) && value !== undefined && value !== null) {
+        directUpdates[key] = value;
+      } else if (value !== undefined && value !== null) {
+        // Store other fields in preferences
+        preferenceUpdates[key] = value;
+      }
+    });
+    
+    // If we have preference updates, we need to merge with existing preferences
+    if (Object.keys(preferenceUpdates).length > 0) {
+      // First get current preferences
+      const currentUser = await db.select({ preferences: users.preferences }).from(users).where(eq(users.id, params.id)).limit(1);
+      const currentPreferences = currentUser[0]?.preferences || {};
+      
+      directUpdates.preferences = {
+        ...currentPreferences,
+        ...preferenceUpdates
+      };
+    }
+    
+    console.log('Direct updates to apply:', directUpdates);
+    
+    if (Object.keys(directUpdates).length === 0) {
+      return NextResponse.json({ error: 'No valid updates provided' }, { status: 400 });
+    }
     
     const updatedUser = await db
       .update(users)
-      .set({ ...allowedUpdates, updatedAt: new Date() })
+      .set({ ...directUpdates, updatedAt: new Date() })
       .where(eq(users.id, params.id))
       .returning();
 
@@ -61,6 +106,7 @@ export async function PATCH(
     // Remove password from response
     const { password: _, ...userWithoutPassword } = updatedUser[0];
     
+    console.log('User updated successfully');
     return NextResponse.json(userWithoutPassword);
   } catch (error) {
     console.error('Error updating user:', error);

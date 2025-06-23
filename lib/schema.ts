@@ -45,6 +45,15 @@ export const recommendations = pgTable('recommendations', {
   createdAt: timestamp('created_at').defaultNow(),
 });
 
+export const passwordResetTokens = pgTable('password_reset_tokens', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  token: text('token').unique().notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+  usedAt: timestamp('used_at'),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
 // Zod schemas for validation
 export const insertUserSchema = createInsertSchema(users);
 export const selectUserSchema = createSelectSchema(users);
@@ -52,6 +61,8 @@ export const insertCarbonCalculationSchema = createInsertSchema(carbonCalculatio
 export const selectCarbonCalculationSchema = createSelectSchema(carbonCalculations);
 export const insertRecommendationSchema = createInsertSchema(recommendations);
 export const selectRecommendationSchema = createSelectSchema(recommendations);
+export const insertPasswordResetTokenSchema = createInsertSchema(passwordResetTokens);
+export const selectPasswordResetTokenSchema = createSelectSchema(passwordResetTokens);
 
 // Types
 export type User = z.infer<typeof selectUserSchema>;
@@ -60,3 +71,5 @@ export type CarbonCalculation = z.infer<typeof selectCarbonCalculationSchema>;
 export type NewCarbonCalculation = z.infer<typeof insertCarbonCalculationSchema>;
 export type Recommendation = z.infer<typeof selectRecommendationSchema>;
 export type NewRecommendation = z.infer<typeof insertRecommendationSchema>;
+export type PasswordResetToken = z.infer<typeof selectPasswordResetTokenSchema>;
+export type NewPasswordResetToken = z.infer<typeof insertPasswordResetTokenSchema>;

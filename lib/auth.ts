@@ -16,22 +16,31 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
+          console.log('Missing credentials');
           return null;
         }
 
         try {
+          console.log('Attempting login for:', credentials.email);
           const user = await db.select().from(users).where(eq(users.email, credentials.email)).limit(1);
           
           if (!user.length) {
+            console.log('User not found');
             return null;
           }
 
+          console.log('User found, checking password');
+          console.log('Stored hash starts with:', user[0].password.substring(0, 10));
+          
           const isPasswordValid = await bcrypt.compare(credentials.password, user[0].password);
+          console.log('Password valid:', isPasswordValid);
           
           if (!isPasswordValid) {
+            console.log('Invalid password');
             return null;
           }
 
+          console.log('Login successful for user:', user[0].email);
           return {
             id: user[0].id,
             email: user[0].email,

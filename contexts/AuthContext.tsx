@@ -40,16 +40,48 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const { data: session, status, update } = useSession();
   const [user, setUser] = useState<User | null>(null);
-  const isLoading = status === 'loading';
+  const [customSession, setCustomSession] = useState<any>(null);
+  const [isCustomLoading, setIsCustomLoading] = useState(true);
+  
+  // Check if we're in Bolt environment
+  const isBoltEnv = typeof window !== 'undefined' && 
+    (window.location.hostname.includes('stackblitz') || 
+     window.location.hostname.includes('bolt') ||
+     window.location.hostname.includes('webcontainer'));
+  
+  const isLoading = isBoltEnv ? isCustomLoading : status === 'loading';
+
+  // Custom session check for Bolt
+  useEffect(() => {
+    if (isBoltEnv) {
+      checkCustomSession();
+    }
+  }, []);
+
+  const checkCustomSession = async () => {
+    try {
+      const response = await fetch('/api/auth/session');
+      const data = await response.json();
+      
+      if (data.user) {
+        setCustomSession({ user: data.user });
+        setUser(data.user);
+      }
+    } catch (error) {
+      console.error('Custom session check error:', error);
+    } finally {
+      setIsCustomLoading(false);
+    }
+  };
 
   useEffect(() => {
-    if (session?.user) {
-      // Fetch full user profile
+    if (!isBoltEnv && session?.user) {
+      // Fetch full user profile for non-Bolt environments
       fetchUserProfile(session.user.id);
-    } else {
+    } else if (!isBoltEnv) {
       setUser(null);
     }
-  }, [session]);
+  }, [session, isBoltEnv]);
 
   const fetchUserProfile = async (userId: string) => {
     try {
@@ -69,9 +101,41 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
+      // Check if we're in Bolt/StackBlitz environment
+      const isBoltEnv = typeof window !== 'undefined' && 
+        (window.location.hostname.includes('stackblitz') || 
+         window.location.hostname.includes('bolt') ||
+         window.location.hostname.includes('webcontainer'));
+      
+      console.log('Login attempt - isBolt:', isBoltEnv);
+      
+      if (isBoltEnv) {
+        // Use custom auth endpoint for Bolt
+        const response = await fetch('/api/auth/signin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email.toLowerCase().trim(), password }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          return { success: false, error: data.error || 'Sign in failed' };
+        }
+
+        // Manually update the session
+        if (data.user) {
+          setUser(data.user);
+          setCustomSession({ user: data.user });
+          // Redirect will happen automatically via the auth page's useEffect
+        }
+        
+        return { success: true };
+      }
+      
+      // Use NextAuth for non-Bolt environments
       console.log('Attempting login with NextAuth...');
       
-      // Add timeout for Bolt environment
       const result = await Promise.race([
         signIn('credentials', {
           email: email.toLowerCase().trim(),
@@ -219,7 +283,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const value: AuthContextType = {
     user,
-    session,
+    session: isBoltEnv ? customSession : session,
     isLoading,
     login,
     signup,

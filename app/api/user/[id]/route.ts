@@ -64,8 +64,24 @@ export async function GET(
         .single();
       
       if (!error && user) {
-        const { password: _, ...userWithoutPassword } = user;
-        return NextResponse.json(userWithoutPassword);
+        // Convert snake_case to camelCase for response
+        const camelCaseUser = {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          location: user.location,
+          carbonGoal: user.carbon_goal,
+          onboardingCompleted: user.onboarding_completed,
+          emailVerified: user.email_verified,
+          subscribeNewsletter: user.subscribe_newsletter,
+          signupSource: user.signup_source,
+          avatarUrl: user.avatar_url,
+          preferences: user.preferences,
+          createdAt: user.created_at,
+          updatedAt: user.updated_at,
+        };
+        
+        return NextResponse.json(camelCaseUser);
       }
     }
 
@@ -113,18 +129,58 @@ export async function PATCH(
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     
     if (supabaseUrl && supabaseAnonKey) {
+      // Map camelCase to snake_case for Supabase
+      const columnMapping: Record<string, string> = {
+        onboardingCompleted: 'onboarding_completed',
+        emailVerified: 'email_verified',
+        subscribeNewsletter: 'subscribe_newsletter',
+        signupSource: 'signup_source',
+        avatarUrl: 'avatar_url',
+        carbonGoal: 'carbon_goal',
+        createdAt: 'created_at',
+        updatedAt: 'updated_at',
+      };
+
+      const supabaseUpdates: Record<string, any> = {
+        updated_at: new Date().toISOString()
+      };
+
+      // Convert camelCase to snake_case
+      Object.entries(safeUpdates).forEach(([key, value]) => {
+        const dbColumn = columnMapping[key] || key;
+        supabaseUpdates[dbColumn] = value;
+      });
+
+      console.log('Supabase updates:', supabaseUpdates);
+
       const supabase = createClient(supabaseUrl, supabaseAnonKey);
       const { data: updatedUser, error } = await supabase
         .from('users')
-        .update({ ...safeUpdates, updatedAt: new Date().toISOString() })
+        .update(supabaseUpdates)
         .eq('id', params.id)
         .select('*')
         .single();
       
       if (!error && updatedUser) {
-        const { password: _, ...userWithoutPassword } = updatedUser;
+        // Convert snake_case back to camelCase for response
+        const camelCaseUser = {
+          id: updatedUser.id,
+          email: updatedUser.email,
+          name: updatedUser.name,
+          location: updatedUser.location,
+          carbonGoal: updatedUser.carbon_goal,
+          onboardingCompleted: updatedUser.onboarding_completed,
+          emailVerified: updatedUser.email_verified,
+          subscribeNewsletter: updatedUser.subscribe_newsletter,
+          signupSource: updatedUser.signup_source,
+          avatarUrl: updatedUser.avatar_url,
+          preferences: updatedUser.preferences,
+          createdAt: updatedUser.created_at,
+          updatedAt: updatedUser.updated_at,
+        };
+
         console.log('User updated successfully via Supabase');
-        return NextResponse.json(userWithoutPassword);
+        return NextResponse.json(camelCaseUser);
       } else {
         console.error('Supabase update error:', error);
       }

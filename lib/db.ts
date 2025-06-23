@@ -25,6 +25,19 @@ const client = postgres(connectionString, {
 
 export const db = drizzle(client, { schema });
 
+// Supabase client setup
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+export let supabase: any = null;
+
+if (supabaseUrl && supabaseAnonKey) {
+  supabase = createClient(supabaseUrl, supabaseAnonKey);
+  console.log('Supabase client initialized');
+} else {
+  console.log('Supabase not configured - using direct PostgreSQL connection');
+}
+
 // Test connection with better error handling
 export async function testConnection() {
   try {
@@ -38,6 +51,27 @@ export async function testConnection() {
     return true;
   } catch (error) {
     console.error('Database connection failed:', error);
+    return false;
+  }
+}
+
+// Test Supabase connection
+export async function testSupabaseConnection() {
+  if (!supabase) {
+    console.log('Supabase not configured');
+    return false;
+  }
+  
+  try {
+    const { data, error } = await supabase.from('users').select('count').limit(1);
+    if (error) {
+      console.error('Supabase connection failed:', error);
+      return false;
+    }
+    console.log('Supabase connection successful');
+    return true;
+  } catch (error) {
+    console.error('Supabase connection error:', error);
     return false;
   }
 }

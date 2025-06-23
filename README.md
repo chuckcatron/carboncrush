@@ -14,8 +14,8 @@ A gamified platform that makes climate action fun, social, and rewarding. Track 
 ## 🚀 Tech Stack
 
 - **Frontend**: Next.js 13, React, TypeScript, Tailwind CSS
-- **Authentication**: NextAuth.js
-- **Database**: Neon (PostgreSQL) with Drizzle ORM
+- **Authentication**: NextAuth.js or Supabase Auth
+- **Database**: Supabase (PostgreSQL) with Drizzle ORM
 - **AI**: Anthropic Claude 3 Sonnet
 - **Animations**: Framer Motion
 - **Charts**: Chart.js with React Chart.js 2
@@ -27,7 +27,7 @@ A gamified platform that makes climate action fun, social, and rewarding. Track 
 ### Prerequisites
 
 - Node.js 18+ and npm
-- Neon database account
+- Supabase account
 - Anthropic API key
 
 ### 1. Clone and Install
@@ -38,22 +38,28 @@ cd carbon-crush
 npm install
 ```
 
-### 2. Neon Database Setup
+### 2. Supabase Setup
 
-1. Create a new project at [neon.tech](https://neon.tech)
-2. Get your database connection string from the dashboard
-3. Run the database migration:
-   ```bash
-   npm run db:generate
-   npm run db:migrate
-   ```
+#### Option A: Create New Supabase Project
+1. Go to [supabase.com](https://supabase.com) and create a new project
+2. Go to Settings > API to get your keys
+3. Copy the migration files to set up your database schema
+
+#### Option B: Use Existing Database
+1. Use your existing PostgreSQL database URL
+2. Run the migrations manually
 
 ### 3. Environment Variables
 
 Create a `.env.local` file:
 
 ```env
-# Database
+# Supabase (recommended)
+NEXT_PUBLIC_SUPABASE_URL="https://your-project.supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="your-anon-key"
+SUPABASE_SERVICE_ROLE_KEY="your-service-role-key"
+
+# Or direct PostgreSQL connection
 DATABASE_URL="postgresql://username:password@host:port/database?sslmode=require"
 
 # NextAuth
@@ -62,9 +68,32 @@ NEXTAUTH_SECRET="your-secret-key-here"
 
 # Anthropic
 ANTHROPIC_API_KEY="your-anthropic-api-key"
+
+# Email (optional)
+RESEND_API_KEY="your-resend-api-key"
 ```
 
-### 4. Get Your API Keys
+### 4. Database Setup
+
+If using Supabase:
+```bash
+# The migration files are already created in supabase/migrations/
+# Apply them through the Supabase dashboard or CLI
+```
+
+If using direct PostgreSQL:
+```bash
+npm run db:generate
+npm run db:migrate
+```
+
+### 5. Get Your API Keys
+
+#### Supabase Keys
+1. Go to your Supabase project dashboard
+2. Navigate to Settings > API
+3. Copy the Project URL and anon/public key
+4. Copy the service_role key (keep this secret!)
 
 #### Anthropic API Key
 1. Go to [console.anthropic.com](https://console.anthropic.com)
@@ -79,7 +108,7 @@ Generate a secure secret for NextAuth:
 openssl rand -base64 32
 ```
 
-### 5. Run the Application
+### 6. Run the Application
 
 ```bash
 npm run dev
@@ -87,60 +116,75 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) to see the application.
 
-## 📊 Database Schema
+## 🗄️ Database Options
 
-### Tables
+### Supabase (Recommended)
+- **Pros**: Built-in auth, real-time subscriptions, edge functions, file storage
+- **Cons**: Vendor lock-in
+- **Best for**: Full-stack applications with real-time features
 
-- **users**: User profiles with preferences and carbon goals
-- **carbon_calculations**: Historical carbon footprint calculations
-- **recommendations**: AI-generated recommendations and their status
+### Direct PostgreSQL
+- **Pros**: Full control, no vendor lock-in, can use any PostgreSQL provider
+- **Cons**: Need to implement auth and real-time features separately
+- **Best for**: Custom setups, existing infrastructure
 
-### Key Features
+## 🔐 Authentication Options
 
-- PostgreSQL with Drizzle ORM
-- Type-safe database operations
-- Automatic timestamp handling
-- Foreign key constraints for data integrity
+### Option 1: Supabase Auth (Recommended)
+```typescript
+import { useSupabaseAuth } from '@/components/auth/SupabaseAuthProvider';
 
-## 🔐 Authentication Flow
+const { user, signIn, signUp, signOut } = useSupabaseAuth();
+```
 
-1. **Signup**: Users create accounts with email/password
-2. **Onboarding**: New users complete profile setup
-3. **Session Management**: JWT-based sessions with NextAuth.js
-4. **Profile Sync**: User data managed through API routes
+### Option 2: NextAuth.js (Current Implementation)
+```typescript
+import { useAuth } from '@/contexts/AuthContext';
 
-## 🤖 AI Recommendations
+const { user, login, signup, logout } = useAuth();
+```
 
-The AI recommendation system powered by Anthropic Claude:
+## 📊 Using Supabase Features
 
-1. Analyzes user's carbon footprint data
-2. Considers user profile and location
-3. Generates personalized, actionable recommendations using Claude 3 Sonnet
-4. Provides fallback recommendations if AI fails
-5. Tracks implementation status and impact
+### Real-time Subscriptions
+```typescript
+import { useSupabaseSubscription } from '@/hooks/useSupabase';
 
-### Claude 3 Sonnet Features
-- **Advanced reasoning**: Better understanding of complex carbon footprint data
-- **Personalization**: Tailored recommendations based on user context
-- **Accuracy**: More precise and actionable climate advice
-- **Safety**: Built-in safety measures for responsible AI recommendations
+const recommendations = useSupabaseSubscription('recommendations', 
+  `user_id=eq.${userId}`,
+  (payload) => {
+    console.log('Real-time update:', payload);
+  }
+);
+```
 
-## 🎮 Gamification Features
+### Database Queries
+```typescript
+import { useSupabaseQuery, useSupabaseMutation } from '@/hooks/useSupabase';
 
-- **Points System**: Earn points for climate actions
-- **Achievements**: Unlock badges for milestones
-- **Leaderboards**: Compete with community members
-- **Challenges**: Participate in time-limited climate challenges
-- **Rewards Store**: Redeem points for real-world rewards
+// Query data
+const { data, loading, error } = useSupabaseQuery('carbon_calculations', 
+  'id, calculation_data, results, created_at'
+);
 
-## 🌍 Environmental Impact
+// Mutations
+const { insert, update, remove } = useSupabaseMutation();
+```
 
-CarbonCrush is built with sustainability in mind:
+### File Storage
+```typescript
+import { supabase } from '@/lib/supabase';
 
-- Hosted on renewable energy (Neon)
-- Optimized for performance to reduce energy consumption
-- Promotes real-world climate action
-- Partners with eco-friendly businesses
+// Upload file
+const { data, error } = await supabase.storage
+  .from('avatars')
+  .upload('user-avatar.png', file);
+
+// Get public URL
+const { data } = supabase.storage
+  .from('avatars')
+  .getPublicUrl('user-avatar.png');
+```
 
 ## 🚀 Deployment
 
@@ -153,7 +197,9 @@ CarbonCrush is built with sustainability in mind:
 ### Environment Variables for Production
 
 ```env
-DATABASE_URL="your_production_neon_database_url"
+NEXT_PUBLIC_SUPABASE_URL="https://your-project.supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="your_production_anon_key"
+SUPABASE_SERVICE_ROLE_KEY="your_production_service_role_key"
 NEXTAUTH_URL="https://yourdomain.com"
 NEXTAUTH_SECRET="your_production_secret"
 ANTHROPIC_API_KEY="your_anthropic_api_key"
@@ -174,7 +220,7 @@ This project is licensed under the MIT License.
 ## 🙏 Acknowledgments
 
 - Built with [bolt.new](https://bolt.new) - AI-powered development platform
-- Powered by [Neon](https://neon.tech) for database services
+- Powered by [Supabase](https://supabase.com) for backend services
 - AI recommendations by [Anthropic Claude](https://anthropic.com)
 - Icons by [Lucide](https://lucide.dev)
 - Images from [Pexels](https://pexels.com)

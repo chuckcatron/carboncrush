@@ -7,7 +7,7 @@ import { eq } from 'drizzle-orm';
 import { createClient } from '@supabase/supabase-js';
 
 export const authOptions: NextAuthOptions = {
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: process.env.NEXTAUTH_SECRET || 'J7DpgaKNQdWQdvf7hrI0imHDDk/HjBBG/snmulQzeUM=',
   providers: [
     CredentialsProvider({
       name: 'credentials',
@@ -125,9 +125,10 @@ export const authOptions: NextAuthOptions = {
     signUp: '/auth',
     error: '/auth',
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: process.env.NEXTAUTH_SECRET || 'J7DpgaKNQdWQdvf7hrI0imHDDk/HjBBG/snmulQzeUM=',
   trustHost: true,
   debug: true, // Enable debug mode for better error logging
+  url: process.env.NEXTAUTH_URL || 'http://localhost:3000'
 };
 
 export async function hashPassword(password: string): Promise<string> {

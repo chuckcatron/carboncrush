@@ -5,6 +5,12 @@ import { useSession, signIn, signOut } from 'next-auth/react';
 import { User } from '@/lib/schema';
 import toast from 'react-hot-toast';
 
+// Check if we're in Bolt/StackBlitz environment
+const isBolt = typeof window !== 'undefined' && 
+  (window.location.hostname.includes('stackblitz') || 
+   window.location.hostname.includes('bolt') ||
+   window.location.hostname === 'localhost' && process.env.NODE_ENV === 'development');
+
 interface AuthContextType {
   user: User | null;
   session: any;

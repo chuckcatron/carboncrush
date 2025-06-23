@@ -90,8 +90,8 @@ export const authOptions: NextAuthOptions = {
     signUp: '/auth',
     error: '/auth',
   },
-  debug: process.env.NODE_ENV === 'development',
   secret: process.env.NEXTAUTH_SECRET,
+  trustHost: true,
 };
 
 export async function hashPassword(password: string): Promise<string> {

@@ -21,7 +21,14 @@ export const authOptions: NextAuthOptions = {
 
         try {
           console.log('Attempting login for:', credentials.email);
-          const user = await db.select().from(users).where(eq(users.email, credentials.email)).limit(1);
+          
+          // Add timeout and better error handling for database connection
+          const user = await Promise.race([
+            db.select().from(users).where(eq(users.email, credentials.email.toLowerCase())).limit(1),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Database query timeout')), 10000)
+            )
+          ]) as any[];
           
           if (!user.length) {
             console.log('User not found');
@@ -92,6 +99,7 @@ export const authOptions: NextAuthOptions = {
   },
   secret: process.env.NEXTAUTH_SECRET,
   trustHost: true,
+  debug: true, // Enable debug mode for better error logging
 };
 
 export async function hashPassword(password: string): Promise<string> {

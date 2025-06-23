@@ -11,15 +11,29 @@ if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL environment variable is required');
 }
 
-// Create postgres connection for Drizzle
+// Create postgres connection for Drizzle with better error handling for Bolt environment
 const connectionString = process.env.DATABASE_URL;
-const client = postgres(connectionString, { prepare: false });
+
+// Configure postgres client with settings optimized for Bolt environment
+const client = postgres(connectionString, { 
+  prepare: false,
+  max: 1, // Limit connections in Bolt environment
+  idle_timeout: 20,
+  connect_timeout: 10,
+  ssl: connectionString.includes('sslmode=require') ? { rejectUnauthorized: false } : false
+});
+
 export const db = drizzle(client, { schema });
 
-// Test connection
+// Test connection with better error handling
 export async function testConnection() {
   try {
-    const result = await client`SELECT 1 as test`;
+    const result = await Promise.race([
+      client`SELECT 1 as test`,
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Connection timeout')), 5000)
+      )
+    ]);
     console.log('Database connection successful:', result);
     return true;
   } catch (error) {

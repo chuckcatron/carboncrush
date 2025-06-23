@@ -47,7 +47,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const fetchUserProfile = async (userId: string) => {
     try {
-      const response = await fetch(`/api/user/${userId}`);
+      const response = await fetch(`/api/user/${userId}`, {
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      });
       if (response.ok) {
         const userData = await response.json();
         setUser(userData);
@@ -60,15 +64,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
       console.log('Attempting login with NextAuth...');
-      const result = await signIn('credentials', {
-        email,
-        password,
-        redirect: false,
-      });
+      
+      // Add timeout for Bolt environment
+      const result = await Promise.race([
+        signIn('credentials', {
+          email: email.toLowerCase().trim(),
+          password,
+          redirect: false,
+        }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Login timeout')), 15000)
+        )
+      ]) as any;
 
       console.log('NextAuth result:', result);
 
       if (result?.error) {
+        console.error('Login error:', result.error);
         return { success: false, error: 'Invalid credentials' };
       }
 
@@ -80,6 +92,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return { success: false, error: 'Login failed' };
     } catch (error) {
       console.error('Login error:', error);
+      if (error instanceof Error && error.message === 'Login timeout') {
+        return { success: false, error: 'Login request timed out. Please try again.' };
+      }
       return { success: false, error: 'An unexpected error occurred' };
     }
   };
@@ -91,18 +106,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     metadata: any = {}
   ): Promise<{ success: boolean; error?: string }> => {
     try {
-      const response = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email,
-          password,
-          name,
-          metadata,
+      const response = await Promise.race([
+        fetch('/api/auth/signup', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: email.toLowerCase().trim(),
+            password,
+            name: name.trim(),
+            metadata,
+          }),
         }),
-      });
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Signup timeout')), 15000)
+        )
+      ]) as Response;
 
       const data = await response.json();
 
@@ -115,6 +135,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return loginResult;
 
     } catch (error) {
+      console.error('Signup error:', error);
+      if (error instanceof Error && error.message === 'Signup timeout') {
+        return { success: false, error: 'Signup request timed out. Please try again.' };
+      }
       return { success: false, error: 'An unexpected error occurred' };
     }
   };

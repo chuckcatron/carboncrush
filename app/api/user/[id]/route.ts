@@ -148,7 +148,10 @@ export async function PATCH(
       // Convert camelCase to snake_case
       Object.entries(safeUpdates).forEach(([key, value]) => {
         const dbColumn = columnMapping[key] || key;
-        supabaseUpdates[dbColumn] = value;
+        // Don't add updatedAt since we're already setting updated_at above
+        if (key !== 'updatedAt') {
+          supabaseUpdates[dbColumn] = value;
+        }
       });
 
       console.log('Supabase updates:', supabaseUpdates);

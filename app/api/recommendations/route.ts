@@ -32,7 +32,22 @@ async function getAuthenticatedUser(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     console.log('=== RECOMMENDATIONS API CALLED ===');
-    const { carbonData, results, userProfile, saveToDatabase = false } = await request.json();
+    console.log('Request method:', request.method);
+    console.log('Request URL:', request.url);
+    
+    let requestData;
+    try {
+      requestData = await request.json();
+      console.log('Successfully parsed request JSON');
+    } catch (parseError) {
+      console.error('Failed to parse request JSON:', parseError);
+      return NextResponse.json(
+        { error: 'Invalid JSON in request body' },
+        { status: 400 }
+      );
+    }
+    
+    const { carbonData, results, userProfile, saveToDatabase = false } = requestData;
     console.log('Request data received:', { 
       hasCarbonData: !!carbonData, 
       hasResults: !!results, 
@@ -48,18 +63,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate AI recommendations
-    let recommendations;
-    try {
-      console.log('Attempting AI generation...');
-      recommendations = await generateAIRecommendations(carbonData, results, userProfile);
-      console.log('AI generation successful');
-    } catch (error) {
-      console.error('AI generation failed, using fallback:', error);
-      console.error('AI generation error details:', error.message);
-      recommendations = generateFallbackRecommendations(carbonData, results);
-      console.log('Using fallback recommendations');
-    }
+    // Temporarily skip AI generation and use fallback to isolate the issue
+    console.log('Skipping AI generation, using fallback recommendations');
+    const recommendations = generateFallbackRecommendations(carbonData, results);
+    console.log('Generated fallback recommendations:', recommendations.length);
 
     // Save to database if requested and user is authenticated
     if (saveToDatabase) {
@@ -69,16 +76,35 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    console.log('API completing successfully');
     return NextResponse.json({ recommendations });
   } catch (error) {
-    console.error('Error generating recommendations:', error);
+    console.error('=== ERROR IN RECOMMENDATIONS API ===');
+    console.error('Error type:', error.constructor.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
     
-    // Return fallback recommendations if AI fails
-    const fallbackRecommendations = generateFallbackRecommendations(carbonData, results);
-    return NextResponse.json({ 
-      recommendations: fallbackRecommendations,
-      fallback: true 
-    });
+    // Check if we have the data needed for fallback
+    let fallbackRecommendations = [];
+    try {
+      if (typeof carbonData !== 'undefined' && typeof results !== 'undefined') {
+        fallbackRecommendations = generateFallbackRecommendations(carbonData, results);
+        console.log('Generated fallback recommendations');
+      } else {
+        console.log('Cannot generate fallback - missing carbonData or results');
+      }
+    } catch (fallbackError) {
+      console.error('Fallback generation also failed:', fallbackError);
+    }
+    
+    return NextResponse.json(
+      { 
+        error: error.message || 'Internal server error',
+        fallback: fallbackRecommendations.length > 0,
+        recommendations: fallbackRecommendations 
+      },
+      { status: 500 }
+    );
   }
 }
 

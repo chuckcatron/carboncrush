@@ -1,15 +1,12 @@
-'use client';
+"use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useSession, signIn, signOut } from 'next-auth/react';
-import { User } from '@/lib/schema';
-import toast from 'react-hot-toast';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { useSession, signIn, signOut } from "next-auth/react";
+import { User } from "@/lib/schema";
+import toast from "react-hot-toast";
 
 // Check if we're in Bolt/StackBlitz environment
-const isBolt = typeof window !== 'undefined' && 
-  (window.location.hostname.includes('stackblitz') || 
-   window.location.hostname.includes('bolt') ||
-   window.location.hostname === 'localhost' && process.env.NODE_ENV === 'development');
+const isBolt = typeof window !== "undefined" && (window.location.hostname.includes("stackblitz") || window.location.hostname.includes("bolt") || (window.location.hostname === "localhost" && process.env.NODE_ENV === "development"));
 
 interface AuthContextType {
   user: User | null;
@@ -28,7 +25,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };
@@ -42,14 +39,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [customSession, setCustomSession] = useState<any>(null);
   const [isCustomLoading, setIsCustomLoading] = useState(true);
-  
+
   // Check if we're in Bolt environment
-  const isBoltEnv = typeof window !== 'undefined' && 
-    (window.location.hostname.includes('stackblitz') || 
-     window.location.hostname.includes('bolt') ||
-     window.location.hostname.includes('webcontainer'));
-  
-  const isLoading = isBoltEnv ? isCustomLoading : status === 'loading';
+  const isBoltEnv = typeof window !== "undefined" && (window.location.hostname.includes("stackblitz") || window.location.hostname.includes("bolt") || window.location.hostname.includes("webcontainer"));
+
+  const isLoading = isBoltEnv ? isCustomLoading : status === "loading";
 
   // Custom session check for Bolt
   useEffect(() => {
@@ -60,18 +54,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const checkCustomSession = async () => {
     try {
-      const response = await fetch('/api/auth/session');
+      const response = await fetch("/api/auth/session");
       const data = await response.json();
-      
+
       if (data.user) {
-        console.log('Custom session user:', data.user);
+        console.log("Custom session user:", data.user);
         setCustomSession({ user: data.user });
-        
+
         // Fetch full user profile to get latest onboarding status
         await fetchUserProfile(data.user.id);
       }
     } catch (error) {
-      console.error('Custom session check error:', error);
+      console.error("Custom session check error:", error);
     } finally {
       setIsCustomLoading(false);
     }
@@ -88,109 +82,117 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const fetchUserProfile = async (userId: string) => {
     try {
-      console.log('Fetching user profile for:', userId);
-      const response = await fetch(`/api/user/${userId}`, {
-        headers: {
-          'Cache-Control': 'no-cache',
-        },
-      });
+      console.log("Fetching user profile for:", userId);
+      console.log("Fetching user profile for:", userId);
+
+      let response;
+      if (isBoltEnv) {
+        // Use a dedicated endpoint for fetching profiles in Bolt
+        response = await fetch("/api/get-profile", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "no-cache",
+          },
+          body: JSON.stringify({ userId }),
+        });
+      } else {
+        response = await fetch(`/api/user/${userId}`, {
+          headers: {
+            "Cache-Control": "no-cache",
+          },
+        });
+      }
+
       if (response.ok) {
         const userData = await response.json();
-        console.log('User profile fetched:', userData);
-        console.log('Onboarding completed (camelCase):', userData.onboardingCompleted);
-        console.log('Onboarding completed (snake_case):', userData.onboarding_completed);
+        console.log("User profile fetched:", userData);
+        console.log("Onboarding completed (camelCase):", userData.onboardingCompleted);
+        console.log("Onboarding completed (snake_case):", userData.onboarding_completed);
         setUser(userData);
-        
+
         // Update custom session if in Bolt environment
         if (isBoltEnv) {
           setCustomSession({ user: userData });
         }
+      } else {
+        console.error("Failed to fetch user profile:", response.status);
       }
     } catch (error) {
-      console.error('Error fetching user profile:', error);
+      console.error("Error fetching user profile:", error);
     }
   };
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
       // Check if we're in Bolt/StackBlitz environment
-      const isBoltEnv = typeof window !== 'undefined' && 
-        (window.location.hostname.includes('stackblitz') || 
-         window.location.hostname.includes('bolt') ||
-         window.location.hostname.includes('webcontainer'));
-      
-      console.log('Login attempt - isBolt:', isBoltEnv);
-      
+      const isBoltEnv = typeof window !== "undefined" && (window.location.hostname.includes("stackblitz") || window.location.hostname.includes("bolt") || window.location.hostname.includes("webcontainer"));
+
+      console.log("Login attempt - isBolt:", isBoltEnv);
+
       if (isBoltEnv) {
         // Use custom auth endpoint for Bolt
-        const response = await fetch('/api/auth/signin', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        const response = await fetch("/api/auth/signin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email: email.toLowerCase().trim(), password }),
         });
 
         const data = await response.json();
 
         if (!response.ok) {
-          return { success: false, error: data.error || 'Sign in failed' };
+          return { success: false, error: data.error || "Sign in failed" };
         }
 
         // Manually update the session and fetch full profile
         if (data.user) {
           await fetchUserProfile(data.user.id);
         }
-        
+
         return { success: true };
       }
-      
+
       // Use NextAuth for non-Bolt environments
-      console.log('Attempting login with NextAuth...');
-      
-      const result = await Promise.race([
-        signIn('credentials', {
+      console.log("Attempting login with NextAuth...");
+
+      const result = (await Promise.race([
+        signIn("credentials", {
           email: email.toLowerCase().trim(),
           password,
           redirect: false,
         }),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Login timeout')), 15000)
-        )
-      ]) as any;
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Login timeout")), 15000)),
+      ])) as any;
 
-      console.log('NextAuth result:', result);
+      console.log("NextAuth result:", result);
 
       if (result?.error) {
-        console.error('Login error:', result.error);
-        return { success: false, error: 'Invalid credentials' };
+        console.error("Login error:", result.error);
+        return { success: false, error: "Invalid credentials" };
       }
 
       if (result?.ok) {
-        console.log('Login successful');
+        console.log("Login successful");
         return { success: true };
       }
 
-      return { success: false, error: 'Login failed' };
+      return { success: false, error: "Login failed" };
     } catch (error) {
-      console.error('Login error:', error);
-      if (error instanceof Error && error.message === 'Login timeout') {
-        return { success: false, error: 'Login request timed out. Please try again.' };
+      console.error("Login error:", error);
+      if (error instanceof Error && error.message === "Login timeout") {
+        return { success: false, error: "Login request timed out. Please try again." };
       }
-      return { success: false, error: 'An unexpected error occurred' };
+      return { success: false, error: "An unexpected error occurred" };
     }
   };
 
-  const signup = async (
-    email: string, 
-    password: string, 
-    name: string, 
-    metadata: any = {}
-  ): Promise<{ success: boolean; error?: string }> => {
+  const signup = async (email: string, password: string, name: string, metadata: any = {}): Promise<{ success: boolean; error?: string }> => {
     try {
-      const response = await Promise.race([
-        fetch('/api/auth/signup', {
-          method: 'POST',
+      const response = (await Promise.race([
+        fetch("/api/auth/signup", {
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
             email: email.toLowerCase().trim(),
@@ -199,10 +201,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             metadata,
           }),
         }),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Signup timeout')), 15000)
-        )
-      ]) as Response;
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Signup timeout")), 15000)),
+      ])) as Response;
 
       const data = await response.json();
 
@@ -213,13 +213,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Auto-login after successful signup
       const loginResult = await login(email, password);
       return loginResult;
-
     } catch (error) {
-      console.error('Signup error:', error);
-      if (error instanceof Error && error.message === 'Signup timeout') {
-        return { success: false, error: 'Signup request timed out. Please try again.' };
+      console.error("Signup error:", error);
+      if (error instanceof Error && error.message === "Signup timeout") {
+        return { success: false, error: "Signup request timed out. Please try again." };
       }
-      return { success: false, error: 'An unexpected error occurred' };
+      return { success: false, error: "An unexpected error occurred" };
     }
   };
 
@@ -228,66 +227,66 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       await signOut({ redirect: false });
       setUser(null);
     } catch (error) {
-      console.error('Error signing out:', error);
-      toast.error('Error signing out');
+      console.error("Error signing out:", error);
+      toast.error("Error signing out");
     }
   };
 
   const updateProfile = async (updates: Partial<User>): Promise<void> => {
     if (!user) {
-      console.error('No user available for profile update');
+      console.error("No user available for profile update");
       return;
     }
 
     try {
-      console.log('Updating profile for user:', user.id, 'with updates:', updates);
-      console.log('Current isBoltEnv:', isBoltEnv);
-      
+      console.log("Updating profile for user:", user.id, "with updates:", updates);
+      console.log("Current isBoltEnv:", isBoltEnv);
+
       // Use different endpoint for Bolt environment to avoid middleware interference
       let response;
-      
+
       if (isBoltEnv) {
-        response = await fetch('/api/update-profile', {
-          method: 'POST',
+        response = await fetch("/api/update-profile", {
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({ userId: user.id, ...updates }),
         });
       } else {
         response = await fetch(`/api/user/${user.id}`, {
-          method: 'PATCH',
+          method: "PATCH",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           body: JSON.stringify(updates),
         });
       }
 
-      console.log('Profile update response status:', response.status);
+      console.log("Profile update response status:", response.status);
 
       if (!response.ok) {
         const responseText = await response.text();
-        console.error('Profile update failed - raw response:', responseText);
-        
+        console.error("Profile update failed - raw response:", responseText);
+
         let errorData;
         try {
           errorData = JSON.parse(responseText);
         } catch {
           errorData = { error: `HTTP ${response.status}: ${responseText}` };
         }
-        
-        console.error('Profile update failed:', errorData);
-        throw new Error(errorData.error || 'Failed to update profile');
+
+        console.error("Profile update failed:", errorData);
+        throw new Error(errorData.error || "Failed to update profile");
       }
 
       const updatedUser = await response.json();
-      console.log('Profile updated successfully:', updatedUser);
-      console.log('Updated onboarding status (camelCase):', updatedUser.onboardingCompleted);
-      console.log('Updated onboarding status (snake_case):', updatedUser.onboarding_completed);
-      
+      console.log("Profile updated successfully:", updatedUser);
+      console.log("Updated onboarding status (camelCase):", updatedUser.onboardingCompleted);
+      console.log("Updated onboarding status (snake_case):", updatedUser.onboarding_completed);
+
       setUser(updatedUser);
-      
+
       // Update session based on environment
       if (isBoltEnv) {
         setCustomSession({ user: updatedUser });
@@ -295,41 +294,41 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Update the session if onboarding status changed
         if (updates.onboardingCompleted !== undefined) {
           await update({
-            onboardingCompleted: updates.onboardingCompleted
+            onboardingCompleted: updates.onboardingCompleted,
           });
         }
       }
-      
-      toast.success('Profile updated successfully');
+
+      toast.success("Profile updated successfully");
     } catch (error) {
-      console.error('Error updating profile:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to update profile');
+      console.error("Error updating profile:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to update profile");
     }
   };
 
   const completeOnboarding = async (data: Partial<User>): Promise<void> => {
-    console.log('Completing onboarding with data:', data);
+    console.log("Completing onboarding with data:", data);
     await updateProfile({ ...data, onboardingCompleted: true });
   };
 
   const resendVerificationEmail = async (): Promise<{ success: boolean; error?: string }> => {
     try {
-      const response = await fetch('/api/auth/send-verification', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/auth/send-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        return { success: false, error: data.error || 'Failed to send verification email' };
+        return { success: false, error: data.error || "Failed to send verification email" };
       }
 
-      toast.success('Verification email sent!');
+      toast.success("Verification email sent!");
       return { success: true };
     } catch (error) {
-      console.error('Error sending verification email:', error);
-      return { success: false, error: 'Failed to send verification email' };
+      console.error("Error sending verification email:", error);
+      return { success: false, error: "Failed to send verification email" };
     }
   };
 
@@ -342,12 +341,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     logout,
     updateProfile,
     completeOnboarding,
-    resendVerificationEmail
+    resendVerificationEmail,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

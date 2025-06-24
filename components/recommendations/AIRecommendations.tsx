@@ -142,6 +142,17 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
     setError(null);
 
     try {
+      console.log('Sending API request with data:', {
+        carbonData,
+        results,
+        userProfile: {
+          location: user?.location,
+          householdSize: 1,
+          carbonGoal: user?.carbonGoal
+        },
+        saveToDatabase: true
+      });
+
       const response = await fetch('/api/recommendations', {
         method: 'POST',
         headers: {
@@ -160,7 +171,9 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate recommendations');
+        const errorData = await response.text();
+        console.error('API response error:', response.status, errorData);
+        throw new Error(`Failed to generate recommendations: ${response.status} ${errorData}`);
       }
 
       const data = await response.json();

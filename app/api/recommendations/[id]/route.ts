@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import jwt from 'jsonwebtoken';
 
+// Force Node.js runtime for JWT and crypto support
+export const runtime = 'nodejs';
+
 async function getAuthenticatedUser(request: NextRequest) {
   // Try custom auth token first (for Bolt environment)
   const token = request.cookies.get('auth-token')?.value;

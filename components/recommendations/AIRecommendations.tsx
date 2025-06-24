@@ -38,6 +38,7 @@ interface Recommendation {
   status?: 'not-started' | 'in-progress' | 'completed';
   startedDate?: string;
   completedDate?: string;
+  dbId?: string; // Database ID for tracking
 }
 
 interface AIRecommendationsProps {
@@ -52,9 +53,10 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
+  const [updatingStatus, setUpdatingStatus] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    // Load saved recommendations
+    // Load saved recommendations from localStorage first
     if (user?.id) {
       const saved = localStorage.getItem(`recommendations_${user.id}`);
       if (saved) {
@@ -65,6 +67,9 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
         }
       }
     }
+
+    // Then try to load from database
+    loadRecommendationsFromDatabase();
   }, [user?.id]);
 
   useEffect(() => {
@@ -73,6 +78,31 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
       generateRecommendations();
     }
   }, [carbonData, results]);
+
+  const loadRecommendationsFromDatabase = async () => {
+    if (!user?.id) return;
+
+    try {
+      const response = await fetch('/api/recommendations');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.recommendations && data.recommendations.length > 0) {
+          // Convert database format to component format
+          const dbRecommendations = data.recommendations.map((dbRec: any) => ({
+            ...dbRec.recommendation_data,
+            status: dbRec.status,
+            startedDate: dbRec.started_at,
+            completedDate: dbRec.completed_at,
+            dbId: dbRec.id
+          }));
+          setRecommendations(dbRecommendations);
+          saveRecommendations(dbRecommendations);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading recommendations from database:', error);
+    }
+  };
 
   const generateRecommendations = async () => {
     if (!carbonData || !results) {
@@ -96,7 +126,8 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
             location: user?.location,
             householdSize: 1, // Default for now
             carbonGoal: user?.carbonGoal
-          }
+          },
+          saveToDatabase: true // Save to database when generating
         }),
       });
 
@@ -121,6 +152,11 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
       saveRecommendations(newRecommendations);
       onRecommendationUpdate?.(newRecommendations);
 
+      // Reload from database to get the database IDs
+      setTimeout(() => {
+        loadRecommendationsFromDatabase();
+      }, 1000);
+
     } catch (error) {
       console.error('Error generating recommendations:', error);
       setError('Failed to generate recommendations. Please try again.');
@@ -136,28 +172,78 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
     }
   };
 
-  const updateRecommendationStatus = (id: string, status: Recommendation['status']) => {
-    const updated = recommendations.map(rec => {
-      if (rec.id === id) {
-        const updatedRec = { 
-          ...rec, 
-          status,
-          startedDate: status === 'in-progress' ? new Date().toISOString() : rec.startedDate,
-          completedDate: status === 'completed' ? new Date().toISOString() : undefined
-        };
-        return updatedRec;
+  const updateRecommendationStatus = async (id: string, status: Recommendation['status']) => {
+    if (!user?.id) {
+      toast.error('Please log in to track recommendations');
+      return;
+    }
+
+    const recommendation = recommendations.find(r => r.id === id);
+    if (!recommendation) {
+      toast.error('Recommendation not found');
+      return;
+    }
+
+    // Add to updating set to show loading state
+    setUpdatingStatus(prev => new Set([...prev, id]));
+
+    try {
+      // If we have a database ID, update in database
+      if (recommendation.dbId) {
+        const response = await fetch(`/api/recommendations/${recommendation.dbId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            status,
+            userId: user.id
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to update recommendation');
+        }
       }
-      return rec;
-    });
 
-    setRecommendations(updated);
-    saveRecommendations(updated);
-    onRecommendationUpdate?.(updated);
+      // Update local state
+      const updated = recommendations.map(rec => {
+        if (rec.id === id) {
+          const updatedRec = { 
+            ...rec, 
+            status,
+            startedDate: status === 'in-progress' ? new Date().toISOString() : rec.startedDate,
+            completedDate: status === 'completed' ? new Date().toISOString() : undefined
+          };
+          return updatedRec;
+        }
+        return rec;
+      });
 
-    if (status === 'completed') {
-      toast.success('Recommendation completed! 🎉');
-    } else if (status === 'in-progress') {
-      toast.success('Recommendation started!');
+      setRecommendations(updated);
+      saveRecommendations(updated);
+      onRecommendationUpdate?.(updated);
+
+      // Show success message
+      if (status === 'completed') {
+        toast.success('🎉 Recommendation completed! Great job!');
+      } else if (status === 'in-progress') {
+        toast.success('Recommendation started! You got this!');
+      } else {
+        toast.success('Status updated');
+      }
+
+    } catch (error) {
+      console.error('Error updating recommendation status:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to update status');
+    } finally {
+      // Remove from updating set
+      setUpdatingStatus(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(id);
+        return newSet;
+      });
     }
   };
 
@@ -334,6 +420,7 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
               const StatusIcon = getStatusIcon(recommendation.status || 'not-started');
               const categoryColor = getCategoryColor(recommendation.category);
               const isExpanded = expandedCards.has(recommendation.id);
+              const isUpdating = updatingStatus.has(recommendation.id);
               
               return (
                 <motion.div
@@ -395,22 +482,32 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
                               {recommendation.status === 'not-started' ? (
                                 <button
                                   onClick={() => updateRecommendationStatus(recommendation.id, 'in-progress')}
-                                  className="btn-primary text-sm py-1 px-3 flex items-center space-x-1"
+                                  disabled={isUpdating}
+                                  className="btn-primary text-sm py-1 px-3 flex items-center space-x-1 disabled:opacity-50"
                                 >
-                                  <Play className="w-3 h-3" />
-                                  <span>Start</span>
+                                  {isUpdating ? (
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <Play className="w-3 h-3" />
+                                  )}
+                                  <span>{isUpdating ? 'Starting...' : 'Start'}</span>
                                 </button>
                               ) : (
                                 <button
                                   onClick={() => updateRecommendationStatus(recommendation.id, 'completed')}
-                                  className="btn-primary text-sm py-1 px-3 flex items-center space-x-1"
+                                  disabled={isUpdating}
+                                  className="btn-primary text-sm py-1 px-3 flex items-center space-x-1 disabled:opacity-50"
                                 >
-                                  <CheckCircle className="w-3 h-3" />
-                                  <span>Complete</span>
+                                  {isUpdating ? (
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <CheckCircle className="w-3 h-3" />
+                                  )}
+                                  <span>{isUpdating ? 'Completing...' : 'Complete'}</span>
                                 </button>
                               )}
                               
-                              {recommendation.status === 'in-progress' && (
+                              {recommendation.status === 'in-progress' && !isUpdating && (
                                 <button
                                   onClick={() => updateRecommendationStatus(recommendation.id, 'not-started')}
                                   className="btn-secondary text-sm py-1 px-3 flex items-center space-x-1"

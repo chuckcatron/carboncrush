@@ -43,6 +43,7 @@ export const recommendations = pgTable('recommendations', {
   startedAt: timestamp('started_at'),
   completedAt: timestamp('completed_at'),
   createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
 });
 
 export const passwordResetTokens = pgTable('password_reset_tokens', {

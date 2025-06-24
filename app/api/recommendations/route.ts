@@ -1,13 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import { createClient } from '@supabase/supabase-js';
+import jwt from 'jsonwebtoken';
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
+async function getAuthenticatedUser(request: NextRequest) {
+  // Try custom auth token first (for Bolt environment)
+  const token = request.cookies.get('auth-token')?.value;
+  if (token) {
+    try {
+      const decoded = jwt.verify(
+        token,
+        process.env.NEXTAUTH_SECRET || 'J7DpgaKNQdWQdvf7hrI0imHDDk/HjBBG/snmulQzeUM='
+      ) as any;
+      
+      return decoded;
+    } catch (error) {
+      console.log('Custom token verification failed:', error);
+    }
+  }
+
+  return null;
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { carbonData, results, userProfile } = await request.json();
+    const { carbonData, results, userProfile, saveToDatabase = false } = await request.json();
 
     if (!carbonData || !results) {
       return NextResponse.json(
@@ -17,7 +38,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate AI recommendations
-    const recommendations = await generateAIRecommendations(carbonData, results, userProfile);
+    let recommendations;
+    try {
+      recommendations = await generateAIRecommendations(carbonData, results, userProfile);
+    } catch (error) {
+      console.error('AI generation failed, using fallback:', error);
+      recommendations = generateFallbackRecommendations(carbonData, results);
+    }
+
+    // Save to database if requested and user is authenticated
+    if (saveToDatabase) {
+      const authenticatedUser = await getAuthenticatedUser(request);
+      if (authenticatedUser) {
+        await saveRecommendationsToDatabase(authenticatedUser.id, recommendations);
+      }
+    }
 
     return NextResponse.json({ recommendations });
   } catch (error) {
@@ -29,6 +64,78 @@ export async function POST(request: NextRequest) {
       recommendations: fallbackRecommendations,
       fallback: true 
     });
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const authenticatedUser = await getAuthenticatedUser(request);
+    if (!authenticatedUser) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return NextResponse.json({ error: 'Database service not configured' }, { status: 500 });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+    // Get user's recommendations
+    const { data: recommendations, error } = await supabase
+      .from('recommendations')
+      .select('*')
+      .eq('user_id', authenticatedUser.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching recommendations:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ recommendations: recommendations || [] });
+
+  } catch (error) {
+    console.error('Error fetching recommendations:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+async function saveRecommendationsToDatabase(userId: string, recommendations: any[]) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.error('Supabase not configured');
+    return;
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+  // Clear existing recommendations for this user
+  await supabase
+    .from('recommendations')
+    .delete()
+    .eq('user_id', userId);
+
+  // Insert new recommendations
+  const recommendationsToInsert = recommendations.map(rec => ({
+    user_id: userId,
+    recommendation_data: rec,
+    status: 'not-started',
+    created_at: new Date().toISOString()
+  }));
+
+  const { error } = await supabase
+    .from('recommendations')
+    .insert(recommendationsToInsert);
+
+  if (error) {
+    console.error('Error saving recommendations:', error);
+  } else {
+    console.log('Recommendations saved to database');
   }
 }
 
@@ -235,28 +342,6 @@ function generateFallbackRecommendations(carbonData: any, results: any) {
           'Use leftovers creatively in new meals'
         ],
         tips: 'Start by planning just 3-4 meals per week'
-      });
-    }
-  }
-
-  // Waste fallbacks
-  if (results.breakdown.waste > 0) {
-    if (carbonData.waste.recyclingPercentage < 70) {
-      recommendations.push({
-        id: 'improve-recycling',
-        title: 'Improve Recycling Habits',
-        description: 'Increase your recycling rate and learn proper recycling practices.',
-        category: 'waste',
-        difficulty: 'easy',
-        timeframe: 'immediate',
-        estimatedReduction: '0.2 tons CO2/year',
-        costSavings: '$0/year',
-        steps: [
-          'Learn what materials are recyclable in your area',
-          'Set up convenient recycling stations at home',
-          'Clean containers before recycling'
-        ],
-        tips: 'Check your local recycling guidelines as they vary by location'
       });
     }
   }

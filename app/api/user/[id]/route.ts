@@ -102,6 +102,14 @@ export async function GET(
   }
 }
 
+// Also export as POST for Bolt environment which doesn't support PATCH
+export async function POST(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  return PATCH(request, { params });
+}
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }

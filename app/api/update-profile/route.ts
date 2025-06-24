@@ -23,19 +23,21 @@ async function getAuthenticatedUser(request: NextRequest, userId: string) {
   return null;
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(request: NextRequest) {
   try {
-    console.log('POST /api/user/[id]/update - User ID:', params.id);
+    const { userId, ...updates } = await request.json();
     
-    const authenticatedUser = await getAuthenticatedUser(request, params.id);
+    if (!userId) {
+      return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+    }
+    
+    console.log('POST /api/update-profile - User ID:', userId);
+    
+    const authenticatedUser = await getAuthenticatedUser(request, userId);
     if (!authenticatedUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const updates = await request.json();
     console.log('Update data received:', updates);
     
     // Remove sensitive fields that shouldn't be updated via this endpoint
@@ -83,7 +85,7 @@ export async function POST(
     const { data: updatedUser, error } = await supabase
       .from('users')
       .update(supabaseUpdates)
-      .eq('id', params.id)
+      .eq('id', userId)
       .select('*')
       .single();
     

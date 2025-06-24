@@ -233,22 +233,31 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.log('Updating profile for user:', user.id, 'with updates:', updates);
       console.log('Current isBoltEnv:', isBoltEnv);
       
-      // Use different endpoint for Bolt environment to avoid routing conflicts
-      const endpoint = isBoltEnv ? `/api/user/${user.id}/update` : `/api/user/${user.id}`;
-      const method = isBoltEnv ? 'POST' : 'PATCH';
+      // Use different endpoint for Bolt environment to avoid middleware interference
+      let response;
       
-      const response = await fetch(endpoint, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updates),
-      });
+      if (isBoltEnv) {
+        response = await fetch('/api/update-profile', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ userId: user.id, ...updates }),
+        });
+      } else {
+        response = await fetch(`/api/user/${user.id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(updates),
+        });
+      }
 
       console.log('Profile update response status:', response.status);
       console.log('Profile update response URL:', response.url);
-      console.log('Profile update endpoint used:', endpoint);
-      console.log('Profile update method used:', method);
+      console.log('Profile update endpoint used:', isBoltEnv ? '/api/update-profile' : `/api/user/${user.id}`);
+      console.log('Profile update method used:', isBoltEnv ? 'POST' : 'PATCH');
 
       if (!response.ok) {
         const responseText = await response.text();

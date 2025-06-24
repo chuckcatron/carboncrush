@@ -61,7 +61,9 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
       const saved = localStorage.getItem(`recommendations_${user.id}`);
       if (saved) {
         try {
-          setRecommendations(JSON.parse(saved));
+          const parsedRecommendations = JSON.parse(saved);
+          console.log('Loaded recommendations from localStorage:', parsedRecommendations);
+          setRecommendations(parsedRecommendations);
         } catch (error) {
           console.error('Error loading recommendations:', error);
         }
@@ -95,6 +97,7 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
             completedDate: dbRec.completed_at,
             dbId: dbRec.id
           }));
+          console.log('Loaded recommendations from database:', dbRecommendations);
           setRecommendations(dbRecommendations);
           saveRecommendations(dbRecommendations);
         }
@@ -148,6 +151,7 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
         status: 'not-started' as const
       }));
 
+      console.log('Generated new recommendations:', newRecommendations);
       setRecommendations(newRecommendations);
       saveRecommendations(newRecommendations);
       onRecommendationUpdate?.(newRecommendations);
@@ -169,6 +173,7 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
   const saveRecommendations = (recs: Recommendation[]) => {
     if (user?.id) {
       localStorage.setItem(`recommendations_${user.id}`, JSON.stringify(recs));
+      console.log('Saved recommendations to localStorage:', recs);
     }
   };
 
@@ -177,6 +182,8 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
       toast.error('Please log in to track recommendations');
       return;
     }
+
+    console.log('Updating recommendation status:', { id, status, userId: user.id });
 
     const recommendation = recommendations.find(r => r.id === id);
     if (!recommendation) {
@@ -188,26 +195,7 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
     setUpdatingStatus(prev => new Set([...prev, id]));
 
     try {
-      // If we have a database ID, update in database
-      if (recommendation.dbId) {
-        const response = await fetch(`/api/recommendations/${recommendation.dbId}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            status,
-            userId: user.id
-          }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to update recommendation');
-        }
-      }
-
-      // Update local state
+      // Update local state immediately for better UX
       const updated = recommendations.map(rec => {
         if (rec.id === id) {
           const updatedRec = { 
@@ -225,18 +213,58 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
       saveRecommendations(updated);
       onRecommendationUpdate?.(updated);
 
+      // Try to update in database if we have a database ID
+      if (recommendation.dbId) {
+        console.log('Updating recommendation in database:', recommendation.dbId);
+        
+        const response = await fetch(`/api/recommendations/${recommendation.dbId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            status,
+            userId: user.id
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('Database update failed:', errorData);
+          // Don't throw error here - local update already succeeded
+          toast.warn('Status updated locally. Database sync may have failed.');
+        } else {
+          console.log('Database update successful');
+        }
+      } else {
+        console.log('No database ID - only updating locally');
+      }
+
       // Show success message
       if (status === 'completed') {
         toast.success('🎉 Recommendation completed! Great job!');
       } else if (status === 'in-progress') {
-        toast.success('Recommendation started! You got this!');
+        toast.success('✅ Recommendation started! You got this!');
       } else {
         toast.success('Status updated');
       }
 
     } catch (error) {
       console.error('Error updating recommendation status:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to update status');
+      
+      // Revert local changes if there was an error
+      const reverted = recommendations.map(rec => {
+        if (rec.id === id) {
+          return recommendation; // Revert to original state
+        }
+        return rec;
+      });
+      
+      setRecommendations(reverted);
+      saveRecommendations(reverted);
+      onRecommendationUpdate?.(reverted);
+      
+      toast.error('Failed to update status. Please try again.');
     } finally {
       // Remove from updating set
       setUpdatingStatus(prev => {
@@ -481,9 +509,12 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
                             <>
                               {recommendation.status === 'not-started' ? (
                                 <button
-                                  onClick={() => updateRecommendationStatus(recommendation.id, 'in-progress')}
+                                  onClick={() => {
+                                    console.log('Start button clicked for:', recommendation.id);
+                                    updateRecommendationStatus(recommendation.id, 'in-progress');
+                                  }}
                                   disabled={isUpdating}
-                                  className="btn-primary text-sm py-1 px-3 flex items-center space-x-1 disabled:opacity-50"
+                                  className="btn-primary text-sm py-1 px-3 flex items-center space-x-1 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                   {isUpdating ? (
                                     <Loader2 className="w-3 h-3 animate-spin" />
@@ -494,9 +525,12 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
                                 </button>
                               ) : (
                                 <button
-                                  onClick={() => updateRecommendationStatus(recommendation.id, 'completed')}
+                                  onClick={() => {
+                                    console.log('Complete button clicked for:', recommendation.id);
+                                    updateRecommendationStatus(recommendation.id, 'completed');
+                                  }}
                                   disabled={isUpdating}
-                                  className="btn-primary text-sm py-1 px-3 flex items-center space-x-1 disabled:opacity-50"
+                                  className="btn-primary text-sm py-1 px-3 flex items-center space-x-1 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                   {isUpdating ? (
                                     <Loader2 className="w-3 h-3 animate-spin" />
@@ -509,7 +543,10 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
                               
                               {recommendation.status === 'in-progress' && !isUpdating && (
                                 <button
-                                  onClick={() => updateRecommendationStatus(recommendation.id, 'not-started')}
+                                  onClick={() => {
+                                    console.log('Pause button clicked for:', recommendation.id);
+                                    updateRecommendationStatus(recommendation.id, 'not-started');
+                                  }}
                                   className="btn-secondary text-sm py-1 px-3 flex items-center space-x-1"
                                 >
                                   <Pause className="w-3 h-3" />

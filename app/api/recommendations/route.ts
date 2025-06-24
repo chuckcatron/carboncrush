@@ -28,9 +28,17 @@ async function getAuthenticatedUser(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('=== RECOMMENDATIONS API CALLED ===');
     const { carbonData, results, userProfile, saveToDatabase = false } = await request.json();
+    console.log('Request data received:', { 
+      hasCarbonData: !!carbonData, 
+      hasResults: !!results, 
+      userProfile, 
+      saveToDatabase 
+    });
 
     if (!carbonData || !results) {
+      console.log('Missing required data validation failed');
       return NextResponse.json(
         { error: 'Missing required data' },
         { status: 400 }
@@ -40,10 +48,14 @@ export async function POST(request: NextRequest) {
     // Generate AI recommendations
     let recommendations;
     try {
+      console.log('Attempting AI generation...');
       recommendations = await generateAIRecommendations(carbonData, results, userProfile);
+      console.log('AI generation successful');
     } catch (error) {
       console.error('AI generation failed, using fallback:', error);
+      console.error('AI generation error details:', error.message);
       recommendations = generateFallbackRecommendations(carbonData, results);
+      console.log('Using fallback recommendations');
     }
 
     // Save to database if requested and user is authenticated

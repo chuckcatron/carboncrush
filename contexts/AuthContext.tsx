@@ -233,10 +233,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.log('Updating profile for user:', user.id, 'with updates:', updates);
       console.log('Current isBoltEnv:', isBoltEnv);
       
-      // Use POST instead of PATCH in Bolt environment
+      // Use different endpoint for Bolt environment to avoid routing conflicts
+      const endpoint = isBoltEnv ? `/api/user/${user.id}/update` : `/api/user/${user.id}`;
       const method = isBoltEnv ? 'POST' : 'PATCH';
       
-      const response = await fetch(`/api/user/${user.id}`, {
+      const response = await fetch(endpoint, {
         method,
         headers: {
           'Content-Type': 'application/json',

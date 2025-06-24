@@ -135,6 +135,11 @@ export default function LandingPage() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
             >
+              <nav className="hidden md:flex items-center space-x-6">
+                <Link href="/about" className="text-slate-600 hover:text-slate-900 transition-colors">About</Link>
+                <Link href="/pricing" className="text-slate-600 hover:text-slate-900 transition-colors">Pricing</Link>
+                <Link href="/contact" className="text-slate-600 hover:text-slate-900 transition-colors">Contact</Link>
+              </nav>
               <Link href="/auth" className="btn-secondary">
                 Sign In
               </Link>
@@ -372,7 +377,7 @@ export default function LandingPage() {
                   viewport={{ once: true }}
                   whileHover={{ scale: 1.05 }}
                 >
-                  <div className="w-16 h-16 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <div className={`w-16 h-16 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-4`}>
                     <Icon className="w-8 h-8 text-white" />
                   </div>
                   <h3 className="text-lg font-semibold text-slate-900 mb-2">{benefit.title}</h3>
@@ -457,10 +462,9 @@ export default function LandingPage() {
                 <span>Get Started Free</span>
                 <ArrowRight className="w-5 h-5" />
               </Link>
-              <button className="border-2 border-white text-white hover:bg-white hover:text-emerald-600 font-semibold py-4 px-8 rounded-xl transition-all duration-300 transform hover:scale-105 flex items-center justify-center space-x-2">
-                <Smartphone className="w-5 h-5" />
-                <span>Download App</span>
-              </button>
+              <Link href="/pricing" className="border-2 border-white text-white hover:bg-white hover:text-emerald-600 font-semibold py-4 px-8 rounded-xl transition-all duration-300 transform hover:scale-105 flex items-center justify-center space-x-2">
+                <span>View Pricing</span>
+              </Link>
             </div>
 
             <p className="text-emerald-100 mt-6 text-sm">
@@ -500,8 +504,8 @@ export default function LandingPage() {
             <div>
               <h4 className="font-semibold mb-4">Product</h4>
               <ul className="space-y-2 text-slate-400">
+                <li><Link href="/pricing" className="hover:text-white transition-colors">Pricing</Link></li>
                 <li><a href="#" className="hover:text-white transition-colors">Features</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Pricing</a></li>
                 <li><a href="#" className="hover:text-white transition-colors">API</a></li>
                 <li><a href="#" className="hover:text-white transition-colors">Mobile App</a></li>
               </ul>
@@ -510,10 +514,10 @@ export default function LandingPage() {
             <div>
               <h4 className="font-semibold mb-4">Company</h4>
               <ul className="space-y-2 text-slate-400">
-                <li><a href="#" className="hover:text-white transition-colors">About</a></li>
+                <li><Link href="/about" className="hover:text-white transition-colors">About</Link></li>
                 <li><a href="#" className="hover:text-white transition-colors">Blog</a></li>
                 <li><a href="#" className="hover:text-white transition-colors">Careers</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Contact</a></li>
+                <li><Link href="/contact" className="hover:text-white transition-colors">Contact</Link></li>
               </ul>
             </div>
             

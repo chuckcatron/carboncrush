@@ -35,8 +35,15 @@ export default function MainApp() {
   const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
 
+  console.log('MainApp - user:', user);
+  console.log('MainApp - onboardingCompleted:', user?.onboardingCompleted);
+
   // Show onboarding if user hasn't completed it
-  if (!user?.onboardingCompleted) {
+  // Check both camelCase and snake_case versions for compatibility
+  const onboardingCompleted = user?.onboardingCompleted || user?.onboarding_completed;
+  
+  if (!onboardingCompleted) {
+    console.log('Showing onboarding flow - onboardingCompleted:', onboardingCompleted);
     return <OnboardingFlow />;
   }
 
@@ -106,9 +113,9 @@ export default function MainApp() {
                       <User className="w-4 h-4 text-white" />
                     </div>
                     <span className="text-sm font-medium text-slate-700 hidden md:block">
-                      {user.name?.split(' ')[0]}
+                      {user?.name?.split(' ')[0]}
                     </span>
-                    {!user.emailVerified && (
+                    {!(user?.emailVerified || user?.email_verified) && (
                       <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
                     )}
                   </button>

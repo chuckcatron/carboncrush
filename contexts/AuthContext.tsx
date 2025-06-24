@@ -64,8 +64,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const data = await response.json();
       
       if (data.user) {
+        console.log('Custom session user:', data.user);
         setCustomSession({ user: data.user });
-        setUser(data.user);
+        
+        // Fetch full user profile to get latest onboarding status
+        await fetchUserProfile(data.user.id);
       }
     } catch (error) {
       console.error('Custom session check error:', error);
@@ -85,6 +88,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const fetchUserProfile = async (userId: string) => {
     try {
+      console.log('Fetching user profile for:', userId);
       const response = await fetch(`/api/user/${userId}`, {
         headers: {
           'Cache-Control': 'no-cache',
@@ -92,7 +96,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
       if (response.ok) {
         const userData = await response.json();
+        console.log('User profile fetched:', userData);
+        console.log('Onboarding completed (camelCase):', userData.onboardingCompleted);
+        console.log('Onboarding completed (snake_case):', userData.onboarding_completed);
         setUser(userData);
+        
+        // Update custom session if in Bolt environment
+        if (isBoltEnv) {
+          setCustomSession({ user: userData });
+        }
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
@@ -123,11 +135,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           return { success: false, error: data.error || 'Sign in failed' };
         }
 
-        // Manually update the session
+        // Manually update the session and fetch full profile
         if (data.user) {
-          setUser(data.user);
-          setCustomSession({ user: data.user });
-          // Redirect will happen automatically via the auth page's useEffect
+          await fetchUserProfile(data.user.id);
         }
         
         return { success: true };
@@ -255,9 +265,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       console.log('Profile update response status:', response.status);
-      console.log('Profile update response URL:', response.url);
-      console.log('Profile update endpoint used:', isBoltEnv ? '/api/update-profile' : `/api/user/${user.id}`);
-      console.log('Profile update method used:', isBoltEnv ? 'POST' : 'PATCH');
 
       if (!response.ok) {
         const responseText = await response.text();
@@ -275,6 +282,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       const updatedUser = await response.json();
+      console.log('Profile updated successfully:', updatedUser);
+      console.log('Updated onboarding status (camelCase):', updatedUser.onboardingCompleted);
+      console.log('Updated onboarding status (snake_case):', updatedUser.onboarding_completed);
+      
       setUser(updatedUser);
       
       // Update session based on environment
@@ -297,6 +308,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const completeOnboarding = async (data: Partial<User>): Promise<void> => {
+    console.log('Completing onboarding with data:', data);
     await updateProfile({ ...data, onboardingCompleted: true });
   };
 

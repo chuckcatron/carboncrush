@@ -79,8 +79,18 @@ export async function GET(
           preferences: user.preferences,
           createdAt: user.created_at,
           updatedAt: user.updated_at,
+          // Also include snake_case versions for compatibility
+          onboarding_completed: user.onboarding_completed,
+          email_verified: user.email_verified,
+          carbon_goal: user.carbon_goal,
+          subscribe_newsletter: user.subscribe_newsletter,
+          signup_source: user.signup_source,
+          avatar_url: user.avatar_url,
+          created_at: user.created_at,
+          updated_at: user.updated_at,
         };
         
+        console.log('User fetched from Supabase - onboarding_completed:', user.onboarding_completed);
         return NextResponse.json(camelCaseUser);
       }
     }
@@ -188,9 +198,18 @@ export async function PATCH(
           preferences: updatedUser.preferences,
           createdAt: updatedUser.created_at,
           updatedAt: updatedUser.updated_at,
+          // Also include snake_case versions for compatibility
+          onboarding_completed: updatedUser.onboarding_completed,
+          email_verified: updatedUser.email_verified,
+          carbon_goal: updatedUser.carbon_goal,
+          subscribe_newsletter: updatedUser.subscribe_newsletter,
+          signup_source: updatedUser.signup_source,
+          avatar_url: updatedUser.avatar_url,
+          created_at: updatedUser.created_at,
+          updated_at: updatedUser.updated_at,
         };
 
-        console.log('User updated successfully via Supabase');
+        console.log('User updated successfully via Supabase - onboarding_completed:', updatedUser.onboarding_completed);
         return NextResponse.json(camelCaseUser);
       } else {
         console.error('Supabase update error:', error);

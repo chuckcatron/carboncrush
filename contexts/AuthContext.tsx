@@ -40,8 +40,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [customSession, setCustomSession] = useState<any>(null);
   const [isCustomLoading, setIsCustomLoading] = useState(true);
 
-  // Check if we're in Bolt environment
-  const isBoltEnv = typeof window !== "undefined" && (window.location.hostname.includes("stackblitz") || window.location.hostname.includes("bolt") || window.location.hostname.includes("webcontainer"));
+  // Force Bolt environment for development
+  const isBoltEnv = true;
 
   const isLoading = isBoltEnv ? isCustomLoading : status === "loading";
 
@@ -125,8 +125,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      // Check if we're in Bolt/StackBlitz environment
-      const isBoltEnv = typeof window !== "undefined" && (window.location.hostname.includes("stackblitz") || window.location.hostname.includes("bolt") || window.location.hostname.includes("webcontainer"));
+      // Force Bolt environment for development
+      const isBoltEnv = true;
 
       console.log("Login attempt - isBolt:", isBoltEnv);
 
@@ -146,7 +146,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         // Manually update the session and fetch full profile
         if (data.user) {
-          await fetchUserProfile(data.user.id);
+          setUser(data.user);
+          setCustomSession({ user: data.user });
+          
+          // Fetch full profile in background
+          fetchUserProfile(data.user.id).catch(console.error);
+          
+          // Force redirect after a short delay to ensure state is updated
+          setTimeout(() => {
+            if (typeof window !== 'undefined') {
+              window.location.href = '/main';
+            }
+          }, 100);
         }
 
         return { success: true };

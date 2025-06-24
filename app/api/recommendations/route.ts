@@ -114,14 +114,23 @@ async function saveRecommendationsToDatabase(userId: string, recommendations: an
 
   const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-  // Clear existing recommendations for this user
-  await supabase
+  // Get existing recommendations to check for duplicates
+  const { data: existing } = await supabase
     .from('recommendations')
-    .delete()
+    .select('recommendation_data')
     .eq('user_id', userId);
 
-  // Insert new recommendations
-  const recommendationsToInsert = recommendations.map(rec => ({
+  const existingIds = new Set(existing?.map(rec => rec.recommendation_data?.id) || []);
+  
+  // Filter out recommendations that already exist (by id)
+  const newRecommendations = recommendations.filter(rec => !existingIds.has(rec.id));
+  
+  if (newRecommendations.length === 0) {
+    console.log('No new recommendations to add - all already exist');
+    return;
+  }
+  
+  const recommendationsToInsert = newRecommendations.map(rec => ({
     user_id: userId,
     recommendation_data: rec,
     status: 'not-started',
@@ -135,7 +144,7 @@ async function saveRecommendationsToDatabase(userId: string, recommendations: an
   if (error) {
     console.error('Error saving recommendations:', error);
   } else {
-    console.log('Recommendations saved to database');
+    console.log(`Added ${newRecommendations.length} new recommendations (filtered out ${recommendations.length - newRecommendations.length} duplicates)`);
   }
 }
 

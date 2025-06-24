@@ -17,11 +17,16 @@ export default function AuthPage() {
 
   useEffect(() => {
     console.log('Auth page - isLoading:', isLoading, 'session:', !!session, 'user:', !!user);
-    // Only redirect if we have both a session AND a user
-    if (!isLoading && session && session.user) {
+    console.log('Auth page - session.user:', !!session?.user);
+    
+    // Check for user in multiple ways for Bolt compatibility
+    const hasUser = user || session?.user;
+    const hasValidSession = session && (session.user || user);
+    
+    if (!isLoading && hasUser && hasValidSession) {
       // User is logged in, redirect to main page
       // The main page will handle onboarding flow if not completed
-      console.log('Redirecting to /main');
+      console.log('Redirecting to /main - hasUser:', !!hasUser, 'hasValidSession:', !!hasValidSession);
       router.push('/main');
     }
   }, [session, user, isLoading, router]);

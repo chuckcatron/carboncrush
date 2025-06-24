@@ -56,21 +56,7 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
   const [updatingStatus, setUpdatingStatus] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    // Load saved recommendations from localStorage first
-    if (user?.id) {
-      const saved = localStorage.getItem(`recommendations_${user.id}`);
-      if (saved) {
-        try {
-          const parsedRecommendations = JSON.parse(saved);
-          console.log('Loaded recommendations from localStorage:', parsedRecommendations);
-          setRecommendations(parsedRecommendations);
-        } catch (error) {
-          console.error('Error loading recommendations:', error);
-        }
-      }
-    }
-
-    // Then try to load from database
+    // Load from database first, then fallback to localStorage if no database data
     loadRecommendationsFromDatabase();
   }, [user?.id]);
 
@@ -100,19 +86,58 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
           console.log('Loaded recommendations from database:', dbRecommendations);
           setRecommendations(dbRecommendations);
           saveRecommendations(dbRecommendations);
+        } else {
+          // No database data, try localStorage as fallback
+          console.log('No database recommendations, trying localStorage');
+          loadFromLocalStorage();
         }
+      } else {
+        // API call failed, try localStorage as fallback
+        console.log('Database API call failed, trying localStorage');
+        loadFromLocalStorage();
       }
     } catch (error) {
       console.error('Error loading recommendations from database:', error);
+      // Database failed, try localStorage as fallback
+      loadFromLocalStorage();
+    }
+  };
+
+  const loadFromLocalStorage = () => {
+    if (user?.id) {
+      const saved = localStorage.getItem(`recommendations_${user.id}`);
+      if (saved) {
+        try {
+          const parsedRecommendations = JSON.parse(saved);
+          console.log('FALLBACK: Loading recommendations from localStorage:', parsedRecommendations);
+          setRecommendations(parsedRecommendations);
+        } catch (error) {
+          console.error('Error loading recommendations from localStorage:', error);
+        }
+      } else {
+        console.log('No localStorage data found');
+      }
     }
   };
 
   const generateRecommendations = async () => {
+    console.log('=== GENERATE RECOMMENDATIONS CLICKED ===');
+    console.log('carbonData:', carbonData);
+    console.log('results:', results);
+    console.log('user:', user);
+    console.log('existing recommendations:', recommendations);
+    
     if (!carbonData || !results) {
-      toast.error('Please calculate your carbon footprint first');
+      console.log('Missing carbonData or results');
+      if (recommendations.length > 0) {
+        toast.error('You already have recommendations! Complete the carbon calculator again to generate new ones.');
+      } else {
+        toast.error('Please complete your carbon footprint calculation first');
+      }
       return;
     }
 
+    console.log('Starting generation...');
     setIsLoading(true);
     setError(null);
 
@@ -152,14 +177,18 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
       }));
 
       console.log('Generated new recommendations:', newRecommendations);
-      setRecommendations(newRecommendations);
-      saveRecommendations(newRecommendations);
+      
+      // Clear localStorage to prevent fallback loading stale data
+      if (user?.id) {
+        localStorage.removeItem(`recommendations_${user.id}`);
+      }
+      
       onRecommendationUpdate?.(newRecommendations);
 
-      // Reload from database to get the database IDs
+      // Reload from database to get the database IDs and avoid duplicates
       setTimeout(() => {
         loadRecommendationsFromDatabase();
-      }, 1000);
+      }, 1500);
 
     } catch (error) {
       console.error('Error generating recommendations:', error);
@@ -178,7 +207,13 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
   };
 
   const updateRecommendationStatus = async (id: string, status: Recommendation['status']) => {
+    console.log('=== START updateRecommendationStatus ===');
+    console.log('Function called with:', { id, status });
+    console.log('User:', user);
+    console.log('User ID:', user?.id);
+    
     if (!user?.id) {
+      console.log('No user ID found, showing error');
       toast.error('Please log in to track recommendations');
       return;
     }
@@ -217,8 +252,9 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
       if (recommendation.dbId) {
         console.log('Updating recommendation in database:', recommendation.dbId);
         
+        // Use POST for Bolt environment compatibility
         const response = await fetch(`/api/recommendations/${recommendation.dbId}`, {
-          method: 'PATCH',
+          method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
@@ -232,7 +268,7 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
           const errorData = await response.json();
           console.error('Database update failed:', errorData);
           // Don't throw error here - local update already succeeded
-          toast.warn('Status updated locally. Database sync may have failed.');
+          toast.error('Status updated locally. Database sync may have failed.');
         } else {
           console.log('Database update successful');
         }
@@ -369,7 +405,7 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
           
           <button
             onClick={generateRecommendations}
-            disabled={isLoading || !carbonData || !results}
+            disabled={isLoading}
             className="btn-primary text-sm py-2 px-3 flex items-center space-x-1"
           >
             {isLoading ? (
@@ -394,22 +430,24 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
         </div>
       )}
 
-      {!carbonData || !results ? (
-        <div className="text-center py-8">
-          <Lightbulb className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-          <h4 className="text-lg font-semibold text-slate-900 mb-2">Ready for AI Recommendations?</h4>
-          <p className="text-slate-600 mb-4">
-            Complete your carbon footprint calculation to get personalized AI-powered recommendations.
-          </p>
-        </div>
-      ) : recommendations.length === 0 && !isLoading ? (
-        <div className="text-center py-8">
-          <Lightbulb className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-          <h4 className="text-lg font-semibold text-slate-900 mb-2">Get Personalized Recommendations</h4>
-          <p className="text-slate-600 mb-4">
-            Click "Generate" to get AI-powered recommendations based on your carbon footprint.
-          </p>
-        </div>
+      {recommendations.length === 0 && !isLoading ? (
+        !carbonData || !results ? (
+          <div className="text-center py-8">
+            <Lightbulb className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+            <h4 className="text-lg font-semibold text-slate-900 mb-2">Ready for AI Recommendations?</h4>
+            <p className="text-slate-600 mb-4">
+              Complete your carbon footprint calculation to get personalized AI-powered recommendations.
+            </p>
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <Lightbulb className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+            <h4 className="text-lg font-semibold text-slate-900 mb-2">Get Personalized Recommendations</h4>
+            <p className="text-slate-600 mb-4">
+              Click "Generate" to get AI-powered recommendations based on your carbon footprint.
+            </p>
+          </div>
+        )
       ) : (
         <>
           {/* Progress Summary */}
@@ -447,12 +485,13 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
               const Icon = getCategoryIcon(recommendation.category);
               const StatusIcon = getStatusIcon(recommendation.status || 'not-started');
               const categoryColor = getCategoryColor(recommendation.category);
-              const isExpanded = expandedCards.has(recommendation.id);
+              const uniqueId = recommendation.dbId || `${recommendation.id}-${index}`;
+              const isExpanded = expandedCards.has(uniqueId);
               const isUpdating = updatingStatus.has(recommendation.id);
               
               return (
                 <motion.div
-                  key={recommendation.id}
+                  key={uniqueId}
                   className={`p-4 rounded-xl border-2 transition-all duration-300 ${
                     recommendation.status === 'completed'
                       ? 'bg-green-50 border-green-200'
@@ -510,7 +549,10 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
                               {recommendation.status === 'not-started' ? (
                                 <button
                                   onClick={() => {
+                                    console.log('=== START BUTTON CLICKED ===');
                                     console.log('Start button clicked for:', recommendation.id);
+                                    console.log('Current recommendation:', recommendation);
+                                    console.log('About to call updateRecommendationStatus');
                                     updateRecommendationStatus(recommendation.id, 'in-progress');
                                   }}
                                   disabled={isUpdating}
@@ -558,7 +600,7 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
                         </div>
                         
                         <button
-                          onClick={() => toggleCardExpansion(recommendation.id)}
+                          onClick={() => toggleCardExpansion(uniqueId)}
                           className="text-slate-500 hover:text-slate-700 flex items-center space-x-1"
                         >
                           <span className="text-sm">Details</span>

@@ -16,9 +16,55 @@ import {
   ArrowDown
 } from 'lucide-react';
 import CarbonChart from './CarbonChart';
-import AIRecommendations from './AIRecommendations';
+import AIRecommendations from './recommendations/AIRecommendations';
+import { useAuth } from '@/contexts/AuthContext';
+import { useState, useEffect } from 'react';
 
 export default function Dashboard() {
+  const { user } = useAuth();
+  const [carbonData, setCarbonData] = useState(null);
+  const [results, setResults] = useState(null);
+
+  useEffect(() => {
+    // Load carbon data from localStorage
+    console.log('=== DASHBOARD LOADING DATA ===');
+    console.log('User:', user);
+    console.log('User ID:', user?.id);
+    
+    if (user?.id) {
+      const savedCarbonData = localStorage.getItem(`carbonData_${user.id}`);
+      const savedResults = localStorage.getItem(`carbonResults_${user.id}`);
+      
+      console.log('Saved carbon data exists:', !!savedCarbonData);
+      console.log('Saved results exist:', !!savedResults);
+      
+      if (savedCarbonData) {
+        try {
+          const parsedData = JSON.parse(savedCarbonData);
+          console.log('Parsed carbon data:', parsedData);
+          setCarbonData(parsedData);
+        } catch (error) {
+          console.error('Error loading carbon data:', error);
+        }
+      }
+      
+      if (savedResults) {
+        try {
+          const parsedResults = JSON.parse(savedResults);
+          console.log('Parsed results:', parsedResults);
+          setResults(parsedResults);
+        } catch (error) {
+          console.error('Error loading results:', error);
+        }
+      }
+      
+      if (!savedCarbonData || !savedResults) {
+        console.log('Missing data - user needs to complete carbon calculator first');
+      }
+    } else {
+      console.log('No user ID available');
+    }
+  }, [user?.id]);
   const stats = [
     {
       title: 'Monthly Carbon Footprint',
@@ -173,7 +219,7 @@ export default function Dashboard() {
       </div>
 
       {/* AI Recommendations */}
-      <AIRecommendations />
+      <AIRecommendations carbonData={carbonData} results={results} />
     </div>
   );
 }

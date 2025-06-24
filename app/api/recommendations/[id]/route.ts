@@ -52,8 +52,7 @@ export async function PATCH(
 
     // Prepare update data
     const updateData: any = {
-      status,
-      updated_at: new Date().toISOString()
+      status
     };
 
     // Set timestamps based on status

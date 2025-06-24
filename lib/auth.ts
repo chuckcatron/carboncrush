@@ -116,14 +116,19 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       console.log('Session callback - session:', !!session, 'token:', !!token);
-      if (token && token.email) {
+      console.log('Session callback - token contents:', token);
+      
+      if (token && token.id) {
         session.user = {
           id: token.id as string,
-          email: token.email as string,
-          name: token.name as string,
+          email: (token.email || session.user?.email) as string,
+          name: (token.name || session.user?.name) as string,
           emailVerified: token.emailVerified as boolean,
           onboardingCompleted: token.onboardingCompleted as boolean,
         };
+        console.log('Session callback - updated session.user:', session.user);
+      } else {
+        console.log('Session callback - no token ID found');
       }
       return session;
     },

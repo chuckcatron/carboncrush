@@ -47,7 +47,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No valid updates provided' }, { status: 400 });
     }
 
-    // Map camelCase to snake_case for Supabase
+    // Define which fields are direct columns vs preferences
+    const directColumns = ['name', 'email', 'location', 'carbon_goal', 'onboarding_completed', 'email_verified', 'subscribe_newsletter', 'signup_source', 'avatar_url'];
+    
+    // Map camelCase to snake_case for direct columns
     const columnMapping: Record<string, string> = {
       onboardingCompleted: 'onboarding_completed',
       emailVerified: 'email_verified',
@@ -63,14 +66,56 @@ export async function POST(request: NextRequest) {
       updated_at: new Date().toISOString()
     };
 
-    // Convert camelCase to snake_case
+    const preferencesToUpdate: Record<string, any> = {};
+
+    // Separate direct columns from preferences
     Object.entries(safeUpdates).forEach(([key, value]) => {
+      if (key === 'updatedAt') {
+        // Skip updatedAt since we're already setting updated_at above
+        return;
+      }
+      
       const dbColumn = columnMapping[key] || key;
-      // Don't add updatedAt since we're already setting updated_at above
-      if (key !== 'updatedAt') {
+      
+      // Check if this is a direct column
+      if (directColumns.includes(dbColumn)) {
         supabaseUpdates[dbColumn] = value;
+      } else {
+        // Store in preferences
+        preferencesToUpdate[key] = value;
       }
     });
+
+    // If we have preferences to update, get current preferences and merge
+    if (Object.keys(preferencesToUpdate).length > 0) {
+      const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+      
+      // Get current preferences
+      const { data: currentUser } = await supabase
+        .from('users')
+        .select('preferences')
+        .eq('id', userId)
+        .single();
+
+      let currentPreferences = {};
+      if (currentUser?.preferences) {
+        try {
+          currentPreferences = typeof currentUser.preferences === 'string' 
+            ? JSON.parse(currentUser.preferences) 
+            : currentUser.preferences;
+        } catch (error) {
+          console.error('Error parsing current preferences:', error);
+        }
+      }
+
+      // Merge with new preferences
+      const updatedPreferences = {
+        ...currentPreferences,
+        ...preferencesToUpdate
+      };
+
+      supabaseUpdates.preferences = JSON.stringify(updatedPreferences);
+    }
 
     console.log('Supabase updates:', supabaseUpdates);
 
@@ -95,6 +140,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Convert snake_case back to camelCase for response
+    let parsedPreferences = {};
+    if (updatedUser.preferences) {
+      try {
+        parsedPreferences = typeof updatedUser.preferences === 'string' 
+          ? JSON.parse(updatedUser.preferences) 
+          : updatedUser.preferences;
+      } catch (error) {
+        console.error('Error parsing preferences in response:', error);
+      }
+    }
+
     const camelCaseUser = {
       id: updatedUser.id,
       email: updatedUser.email,
@@ -109,6 +165,8 @@ export async function POST(request: NextRequest) {
       preferences: updatedUser.preferences,
       createdAt: updatedUser.created_at,
       updatedAt: updatedUser.updated_at,
+      // Spread preferences into the main object for easier access
+      ...parsedPreferences,
     };
 
     console.log('User updated successfully via Supabase');

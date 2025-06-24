@@ -247,9 +247,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       console.log('Profile update response status:', response.status);
       console.log('Profile update response URL:', response.url);
+      console.log('Profile update endpoint used:', endpoint);
+      console.log('Profile update method used:', method);
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        const responseText = await response.text();
+        console.error('Profile update failed - raw response:', responseText);
+        
+        let errorData;
+        try {
+          errorData = JSON.parse(responseText);
+        } catch {
+          errorData = { error: `HTTP ${response.status}: ${responseText}` };
+        }
+        
         console.error('Profile update failed:', errorData);
         throw new Error(errorData.error || 'Failed to update profile');
       }

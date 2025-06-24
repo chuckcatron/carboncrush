@@ -8,8 +8,42 @@ A gamified platform that makes climate action fun, social, and rewarding. Track 
 - **AI-Powered Recommendations**: Personalized suggestions using Anthropic Claude to reduce your environmental impact
 - **Community Challenges**: Join climate action challenges with friends and compete on leaderboards
 - **Rewards System**: Earn points and redeem real-world sustainable rewards
-- **Business Directory**: Discover eco-friendly businesses in your area
+- **Business Directory**: Discover eco-friendly businesses in your area powered by Google Places API
 - **Progress Tracking**: Monitor your climate journey with detailed analytics
+- **Premium Features**: Advanced analytics, unlimited AI recommendations, and carbon offset marketplace
+- **Monetization**: Multiple revenue streams including subscriptions, carbon offsets, and business partnerships
+
+## 💰 Monetization Strategy
+
+### 1. **Freemium Subscription Model**
+- **Free Tier**: Basic carbon calculator, 3 AI recommendations/month, community features
+- **Pro Tier ($9.99/month)**: Unlimited AI recommendations, advanced analytics, carbon offset marketplace
+- **Business Tier ($49.99/month)**: Team collaboration, API access, custom branding, compliance reporting
+
+### 2. **Carbon Offset Marketplace**
+- Commission-based sales of verified carbon offset projects
+- 10-15% commission on offset purchases
+- Partnership with verified project developers worldwide
+- Estimated revenue: $25K-50K/month
+
+### 3. **Business Partnerships & Affiliate Marketing**
+- Partner with sustainable brands (Tesla, Patagonia, solar companies)
+- 5-15% commission on referred sales
+- Featured placement fees for premium partners
+- Estimated revenue: $15K-30K/month
+
+### 4. **B2B Solutions**
+- Corporate sustainability dashboards
+- Employee engagement programs
+- ESG reporting tools
+- White-label solutions
+- Estimated revenue: $30K-100K/month
+
+### 5. **Data & Analytics (Privacy-Compliant)**
+- Aggregated sustainability insights for researchers
+- Market trends for sustainable product companies
+- Anonymous behavioral data for climate organizations
+- Estimated revenue: $10K-25K/month
 
 ## 🚀 Tech Stack
 
@@ -17,6 +51,8 @@ A gamified platform that makes climate action fun, social, and rewarding. Track 
 - **Authentication**: NextAuth.js or Supabase Auth
 - **Database**: Supabase (PostgreSQL) with Drizzle ORM
 - **AI**: Anthropic Claude 3 Sonnet
+- **Maps**: Google Places API for business directory
+- **Payments**: Stripe for subscriptions and carbon offset purchases
 - **Animations**: Framer Motion
 - **Charts**: Chart.js with React Chart.js 2
 - **Icons**: Lucide React
@@ -29,6 +65,8 @@ A gamified platform that makes climate action fun, social, and rewarding. Track 
 - Node.js 18+ and npm
 - Supabase account
 - Anthropic API key
+- Google Places API key
+- Stripe account (for payments)
 
 ### 1. Clone and Install
 
@@ -69,6 +107,14 @@ NEXTAUTH_SECRET="your-secret-key-here"
 # Anthropic
 ANTHROPIC_API_KEY="your-anthropic-api-key"
 
+# Google Places API
+GOOGLE_PLACES_API_KEY="your-google-places-api-key"
+
+# Stripe (for payments)
+STRIPE_PUBLISHABLE_KEY="pk_test_..."
+STRIPE_SECRET_KEY="sk_test_..."
+STRIPE_WEBHOOK_SECRET="whsec_..."
+
 # Email (optional)
 RESEND_API_KEY="your-resend-api-key"
 ```
@@ -102,6 +148,21 @@ npm run db:migrate
 4. Create a new API key
 5. Copy the key and add it to your `.env.local` file
 
+#### Google Places API Key
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select existing one
+3. Enable the following APIs:
+   - Places API
+   - Geocoding API
+   - Maps JavaScript API
+4. Create credentials (API Key)
+5. Restrict the API key to your domain for security
+
+#### Stripe Keys
+1. Go to [Stripe Dashboard](https://dashboard.stripe.com)
+2. Get your publishable and secret keys from the API section
+3. Set up webhook endpoints for subscription management
+
 #### NextAuth Secret
 Generate a secure secret for NextAuth:
 ```bash
@@ -115,6 +176,42 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) to see the application.
+
+## 💳 Payment Integration
+
+### Stripe Setup
+1. Create products in Stripe Dashboard:
+   - Climate Pro ($9.99/month)
+   - Climate Business ($49.99/month)
+2. Set up webhook endpoints for:
+   - `customer.subscription.created`
+   - `customer.subscription.updated`
+   - `customer.subscription.deleted`
+   - `invoice.payment_succeeded`
+   - `invoice.payment_failed`
+
+### Carbon Offset Payments
+- Integrate with verified carbon offset providers
+- Set up commission tracking
+- Implement certificate generation
+
+## 📊 Revenue Projections
+
+### Year 1 Targets
+- **Users**: 10,000 free, 1,000 pro, 50 business
+- **Monthly Revenue**: $25K-50K
+- **Annual Revenue**: $300K-600K
+
+### Year 2 Targets
+- **Users**: 50,000 free, 5,000 pro, 200 business
+- **Monthly Revenue**: $100K-200K
+- **Annual Revenue**: $1.2M-2.4M
+
+### Revenue Breakdown
+- Subscriptions: 60%
+- Carbon Offsets: 25%
+- Partnerships: 10%
+- B2B Solutions: 5%
 
 ## 🗄️ Database Options
 
@@ -203,6 +300,9 @@ SUPABASE_SERVICE_ROLE_KEY="your_production_service_role_key"
 NEXTAUTH_URL="https://yourdomain.com"
 NEXTAUTH_SECRET="your_production_secret"
 ANTHROPIC_API_KEY="your_anthropic_api_key"
+GOOGLE_PLACES_API_KEY="your_google_places_api_key"
+STRIPE_PUBLISHABLE_KEY="pk_live_..."
+STRIPE_SECRET_KEY="sk_live_..."
 ```
 
 ## 🤝 Contributing
@@ -222,9 +322,11 @@ This project is licensed under the MIT License.
 - Built with [bolt.new](https://bolt.new) - AI-powered development platform
 - Powered by [Supabase](https://supabase.com) for backend services
 - AI recommendations by [Anthropic Claude](https://anthropic.com)
+- Maps by [Google Places API](https://developers.google.com/maps/documentation/places/web-service)
+- Payments by [Stripe](https://stripe.com)
 - Icons by [Lucide](https://lucide.dev)
 - Images from [Pexels](https://pexels.com)
 
 ---
 
-**Start your climate action journey today! 🌱**
+**Start your climate action journey today and build a sustainable business! 🌱💰**

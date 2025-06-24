@@ -16,126 +16,192 @@ import {
   Car,
   Utensils,
   Home,
-  ShoppingBag
+  ShoppingBag,
+  Loader2,
+  ExternalLink,
+  Navigation
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import toast from 'react-hot-toast';
+
+interface GooglePlace {
+  place_id: string;
+  name: string;
+  formatted_address: string;
+  formatted_phone_number?: string;
+  website?: string;
+  rating?: number;
+  user_ratings_total?: number;
+  opening_hours?: {
+    open_now: boolean;
+    weekday_text: string[];
+  };
+  photos?: Array<{
+    photo_reference: string;
+    height: number;
+    width: number;
+  }>;
+  types: string[];
+  price_level?: number;
+  geometry: {
+    location: {
+      lat: number;
+      lng: number;
+    };
+  };
+}
+
+interface BusinessWithSustainability extends GooglePlace {
+  sustainabilityScore: number;
+  sustainabilityReasons: string[];
+  category: string;
+  distance?: string;
+}
 
 export default function BusinessDirectory() {
+  const { user } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [businesses, setBusinesses] = useState<BusinessWithSustainability[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [userLocation, setUserLocation] = useState<string>('');
+  const [currentLocation, setCurrentLocation] = useState<{lat: number, lng: number} | null>(null);
 
   const categories = [
-    { id: 'all', name: 'All', icon: Globe },
-    { id: 'food', name: 'Food & Dining', icon: Utensils },
-    { id: 'transport', name: 'Transportation', icon: Car },
-    { id: 'energy', name: 'Energy', icon: Zap },
-    { id: 'retail', name: 'Retail', icon: ShoppingBag },
-    { id: 'services', name: 'Services', icon: Home }
+    { id: 'all', name: 'All', icon: Globe, keywords: ['sustainable', 'eco-friendly', 'green', 'organic'] },
+    { id: 'food', name: 'Food & Dining', icon: Utensils, keywords: ['organic restaurant', 'farm to table', 'vegan', 'sustainable food', 'local food'] },
+    { id: 'transport', name: 'Transportation', icon: Car, keywords: ['electric vehicle', 'bike shop', 'car sharing', 'public transport'] },
+    { id: 'energy', name: 'Energy', icon: Zap, keywords: ['solar panels', 'renewable energy', 'energy efficiency', 'green energy'] },
+    { id: 'retail', name: 'Retail', icon: ShoppingBag, keywords: ['sustainable fashion', 'eco-friendly products', 'zero waste store', 'thrift store'] },
+    { id: 'services', name: 'Services', icon: Home, keywords: ['green cleaning', 'eco-friendly services', 'sustainable business'] }
   ];
 
-  const businesses = [
+  useEffect(() => {
+    // Set user location from onboarding
+    if (user?.location) {
+      setUserLocation(user.location);
+      searchGreenBusinesses(user.location, selectedCategory);
+    }
+  }, [user?.location, selectedCategory]);
+
+  const getCurrentLocation = () => {
+    if (navigator.geolocation) {
+      setIsLoading(true);
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setCurrentLocation({ lat: latitude, lng: longitude });
+          searchGreenBusinessesByCoords(latitude, longitude, selectedCategory);
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+          toast.error('Could not get your current location');
+          setIsLoading(false);
+        }
+      );
+    } else {
+      toast.error('Geolocation is not supported by this browser');
+    }
+  };
+
+  const searchGreenBusinesses = async (location: string, category: string) => {
+    if (!location.trim()) return;
+    
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/places/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          location,
+          category,
+          query: searchTerm
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to search businesses');
+      }
+
+      const data = await response.json();
+      setBusinesses(data.businesses || []);
+    } catch (error) {
+      console.error('Error searching businesses:', error);
+      toast.error('Failed to load businesses. Please try again.');
+      // Fallback to mock data
+      setBusinesses(getMockBusinesses());
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const searchGreenBusinessesByCoords = async (lat: number, lng: number, category: string) => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/places/search-by-coords', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lat,
+          lng,
+          category,
+          query: searchTerm
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to search businesses');
+      }
+
+      const data = await response.json();
+      setBusinesses(data.businesses || []);
+    } catch (error) {
+      console.error('Error searching businesses:', error);
+      toast.error('Failed to load businesses. Please try again.');
+      setBusinesses(getMockBusinesses());
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getMockBusinesses = (): BusinessWithSustainability[] => [
     {
-      id: 1,
+      place_id: 'mock-1',
       name: 'Green Leaf Bistro',
-      category: 'food',
+      formatted_address: '123 Eco Street, Green City',
+      formatted_phone_number: '(555) 123-4567',
+      website: 'https://greenleafbistro.com',
       rating: 4.8,
-      reviews: 324,
-      distance: '0.3 miles',
-      address: '123 Eco Street, Green City',
-      phone: '(555) 123-4567',
-      website: 'greenleafbistro.com',
-      hours: 'Open until 10 PM',
+      user_ratings_total: 324,
+      types: ['restaurant', 'food'],
+      geometry: { location: { lat: 37.7749, lng: -122.4194 } },
       sustainabilityScore: 95,
-      certifications: ['Organic', 'Local Sourcing', 'Zero Waste'],
-      description: 'Farm-to-table restaurant with 100% organic ingredients and zero waste practices.',
-      image: 'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=400'
-    },
-    {
-      id: 2,
-      name: 'EcoRide Car Share',
-      category: 'transport',
-      rating: 4.6,
-      reviews: 189,
-      distance: '0.5 miles',
-      address: '456 Clean Ave, Green City',
-      phone: '(555) 234-5678',
-      website: 'ecoride.com',
-      hours: '24/7 Available',
-      sustainabilityScore: 92,
-      certifications: ['Electric Fleet', 'Carbon Neutral'],
-      description: 'Electric vehicle sharing service with solar-powered charging stations.',
-      image: 'https://images.pexels.com/photos/110844/pexels-photo-110844.jpeg?auto=compress&cs=tinysrgb&w=400'
-    },
-    {
-      id: 3,
-      name: 'Solar Solutions Pro',
-      category: 'energy',
-      rating: 4.9,
-      reviews: 156,
-      distance: '1.2 miles',
-      address: '789 Renewable Rd, Green City',
-      phone: '(555) 345-6789',
-      website: 'solarsolutionspro.com',
-      hours: 'Open until 6 PM',
-      sustainabilityScore: 98,
-      certifications: ['NABCEP Certified', 'B-Corp'],
-      description: 'Professional solar panel installation with 25-year warranty and financing options.',
-      image: 'https://images.pexels.com/photos/9875414/pexels-photo-9875414.jpeg?auto=compress&cs=tinysrgb&w=400'
-    },
-    {
-      id: 4,
-      name: 'Sustainable Style',
-      category: 'retail',
-      rating: 4.7,
-      reviews: 267,
-      distance: '0.8 miles',
-      address: '321 Fashion St, Green City',
-      phone: '(555) 456-7890',
-      website: 'sustainablestyle.com',
-      hours: 'Open until 8 PM',
-      sustainabilityScore: 89,
-      certifications: ['Fair Trade', 'Organic Cotton', 'Recycled Materials'],
-      description: 'Eco-friendly clothing store featuring sustainable fashion brands and upcycled items.',
-      image: 'https://images.pexels.com/photos/996329/pexels-photo-996329.jpeg?auto=compress&cs=tinysrgb&w=400'
-    },
-    {
-      id: 5,
-      name: 'Green Clean Services',
-      category: 'services',
-      rating: 4.5,
-      reviews: 98,
-      distance: '1.5 miles',
-      address: '654 Service Blvd, Green City',
-      phone: '(555) 567-8901',
-      website: 'greencleanservices.com',
-      hours: 'Open until 5 PM',
-      sustainabilityScore: 87,
-      certifications: ['Non-Toxic Products', 'Green Seal'],
-      description: 'Professional cleaning service using only eco-friendly, non-toxic products.',
-      image: 'https://images.pexels.com/photos/4239146/pexels-photo-4239146.jpeg?auto=compress&cs=tinysrgb&w=400'
-    },
-    {
-      id: 6,
-      name: 'Urban Harvest Market',
+      sustainabilityReasons: ['Organic ingredients', 'Local sourcing', 'Zero waste practices'],
       category: 'food',
-      rating: 4.8,
-      reviews: 445,
-      distance: '0.7 miles',
-      address: '987 Market St, Green City',
-      phone: '(555) 678-9012',
-      website: 'urbanharvest.com',
-      hours: 'Open until 9 PM',
-      sustainabilityScore: 94,
-      certifications: ['Organic', 'Local Farmers', 'Plastic-Free'],
-      description: 'Organic grocery store supporting local farmers with plastic-free packaging.',
-      image: 'https://images.pexels.com/photos/1435904/pexels-photo-1435904.jpeg?auto=compress&cs=tinysrgb&w=400'
+      distance: '0.3 miles'
+    },
+    {
+      place_id: 'mock-2',
+      name: 'EcoRide Car Share',
+      formatted_address: '456 Clean Ave, Green City',
+      formatted_phone_number: '(555) 234-5678',
+      website: 'https://ecoride.com',
+      rating: 4.6,
+      user_ratings_total: 189,
+      types: ['car_rental', 'establishment'],
+      geometry: { location: { lat: 37.7849, lng: -122.4094 } },
+      sustainabilityScore: 92,
+      sustainabilityReasons: ['Electric fleet', 'Carbon neutral', 'Solar charging'],
+      category: 'transport',
+      distance: '0.5 miles'
     }
   ];
 
   const filteredBusinesses = businesses.filter(business => {
     const matchesCategory = selectedCategory === 'all' || business.category === selectedCategory;
     const matchesSearch = business.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         business.description.toLowerCase().includes(searchTerm.toLowerCase());
+                         business.formatted_address.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesCategory && matchesSearch;
   });
 
@@ -143,6 +209,10 @@ export default function BusinessDirectory() {
     if (score >= 90) return 'text-green-600 bg-green-100';
     if (score >= 80) return 'text-yellow-600 bg-yellow-100';
     return 'text-orange-600 bg-orange-100';
+  };
+
+  const getPhotoUrl = (photoReference: string) => {
+    return `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photoReference}&key=${process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY}`;
   };
 
   return (
@@ -158,9 +228,60 @@ export default function BusinessDirectory() {
           <MapPin className="w-8 h-8 text-white" />
         </div>
         <h2 className="text-3xl font-bold gradient-text mb-2">Sustainable Business Directory</h2>
-        <p className="text-slate-600">
-          Discover eco-friendly businesses in your area and support sustainable practices
+        <p className="text-slate-600 mb-4">
+          Discover eco-friendly businesses near you powered by Google Places
         </p>
+        {userLocation && (
+          <p className="text-sm text-emerald-600 font-medium">
+            📍 Searching near: {userLocation}
+          </p>
+        )}
+      </motion.div>
+
+      {/* Location Controls */}
+      <motion.div
+        className="card"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.1 }}
+      >
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Search Location
+            </label>
+            <input
+              type="text"
+              placeholder="Enter city, address, or zip code"
+              value={userLocation}
+              onChange={(e) => setUserLocation(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && searchGreenBusinesses(userLocation, selectedCategory)}
+              className="w-full px-4 py-3 glass rounded-xl border border-white/30 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-300"
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => searchGreenBusinesses(userLocation, selectedCategory)}
+              disabled={isLoading || !userLocation.trim()}
+              className="btn-primary flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <Search className="w-5 h-5" />
+              )}
+              <span>Search</span>
+            </button>
+            <button
+              onClick={getCurrentLocation}
+              disabled={isLoading}
+              className="btn-secondary flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Navigation className="w-5 h-5" />
+              <span>Use Current</span>
+            </button>
+          </div>
+        </div>
       </motion.div>
 
       {/* Search and Filters */}
@@ -168,7 +289,7 @@ export default function BusinessDirectory() {
         className="card"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.1 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
       >
         <div className="flex flex-col md:flex-row gap-4">
           {/* Search */}
@@ -211,110 +332,182 @@ export default function BusinessDirectory() {
         className="flex items-center justify-between"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.5, delay: 0.2 }}
+        transition={{ duration: 0.5, delay: 0.3 }}
       >
         <p className="text-slate-600">
-          Found {filteredBusinesses.length} sustainable businesses
+          {isLoading ? 'Searching...' : `Found ${filteredBusinesses.length} sustainable businesses`}
         </p>
-        <button className="flex items-center space-x-1 text-emerald-600 hover:text-emerald-700 font-medium">
-          <Filter className="w-4 h-4" />
-          <span>More Filters</span>
-        </button>
+        <div className="flex items-center space-x-2 text-sm text-slate-500">
+          <Leaf className="w-4 h-4 text-emerald-600" />
+          <span>Powered by Google Places</span>
+        </div>
       </motion.div>
 
+      {/* Loading State */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-12">
+          <div className="flex items-center space-x-3">
+            <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
+            <span className="text-lg font-medium text-slate-700">Finding green businesses...</span>
+          </div>
+        </div>
+      )}
+
       {/* Business Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {filteredBusinesses.map((business, index) => (
-          <motion.div
-            key={business.id}
-            className="card hover:shadow-xl transition-all duration-300"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: index * 0.1 }}
-            whileHover={{ scale: 1.02 }}
-          >
-            <div className="flex space-x-4">
-              {/* Business Image */}
-              <div className="w-24 h-24 rounded-xl overflow-hidden flex-shrink-0">
-                <img 
-                  src={business.image} 
-                  alt={business.name}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              
-              {/* Business Info */}
-              <div className="flex-1">
-                <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <h3 className="font-bold text-slate-900 mb-1">{business.name}</h3>
-                    <div className="flex items-center space-x-2 text-sm text-slate-600">
-                      <div className="flex items-center space-x-1">
-                        <Star className="w-4 h-4 text-yellow-500 fill-current" />
-                        <span>{business.rating}</span>
-                        <span>({business.reviews})</span>
+      {!isLoading && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {filteredBusinesses.map((business, index) => (
+            <motion.div
+              key={business.place_id}
+              className="card hover:shadow-xl transition-all duration-300"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: index * 0.1 }}
+              whileHover={{ scale: 1.02 }}
+            >
+              <div className="flex space-x-4">
+                {/* Business Image */}
+                <div className="w-24 h-24 rounded-xl overflow-hidden flex-shrink-0 bg-gradient-to-br from-emerald-100 to-teal-100">
+                  {business.photos && business.photos[0] ? (
+                    <img 
+                      src={getPhotoUrl(business.photos[0].photo_reference)}
+                      alt={business.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                      }}
+                    />
+                  ) : null}
+                  <div className={`w-full h-full flex items-center justify-center ${business.photos && business.photos[0] ? 'hidden' : ''}`}>
+                    <Leaf className="w-8 h-8 text-emerald-600" />
+                  </div>
+                </div>
+                
+                {/* Business Info */}
+                <div className="flex-1">
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <h3 className="font-bold text-slate-900 mb-1">{business.name}</h3>
+                      <div className="flex items-center space-x-2 text-sm text-slate-600">
+                        {business.rating && (
+                          <>
+                            <div className="flex items-center space-x-1">
+                              <Star className="w-4 h-4 text-yellow-500 fill-current" />
+                              <span>{business.rating}</span>
+                              {business.user_ratings_total && (
+                                <span>({business.user_ratings_total})</span>
+                              )}
+                            </div>
+                            <span>•</span>
+                          </>
+                        )}
+                        {business.distance && <span>{business.distance}</span>}
                       </div>
-                      <span>•</span>
-                      <span>{business.distance}</span>
+                    </div>
+                    <div className={`px-2 py-1 rounded-full text-xs font-medium ${getSustainabilityColor(business.sustainabilityScore)}`}>
+                      {business.sustainabilityScore}% Green
                     </div>
                   </div>
-                  <div className={`px-2 py-1 rounded-full text-xs font-medium ${getSustainabilityColor(business.sustainabilityScore)}`}>
-                    {business.sustainabilityScore}% Sustainable
+                  
+                  <p className="text-sm text-slate-600 mb-3 line-clamp-2">{business.formatted_address}</p>
+                  
+                  {/* Sustainability Reasons */}
+                  <div className="flex flex-wrap gap-1 mb-3">
+                    {business.sustainabilityReasons.slice(0, 2).map((reason) => (
+                      <span key={reason} className="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium">
+                        {reason}
+                      </span>
+                    ))}
+                    {business.sustainabilityReasons.length > 2 && (
+                      <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-medium">
+                        +{business.sustainabilityReasons.length - 2} more
+                      </span>
+                    )}
                   </div>
-                </div>
-                
-                <p className="text-sm text-slate-600 mb-3 line-clamp-2">{business.description}</p>
-                
-                {/* Certifications */}
-                <div className="flex flex-wrap gap-1 mb-3">
-                  {business.certifications.slice(0, 2).map((cert) => (
-                    <span key={cert} className="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium">
-                      {cert}
-                    </span>
-                  ))}
-                  {business.certifications.length > 2 && (
-                    <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-medium">
-                      +{business.certifications.length - 2} more
-                    </span>
-                  )}
-                </div>
-                
-                {/* Contact Info */}
-                <div className="flex items-center justify-between text-sm text-slate-600">
-                  <div className="flex items-center space-x-1">
-                    <Clock className="w-4 h-4" />
-                    <span>{business.hours}</span>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <button className="flex items-center space-x-1 text-emerald-600 hover:text-emerald-700">
-                      <Phone className="w-4 h-4" />
-                      <span>Call</span>
-                    </button>
-                    <button className="flex items-center space-x-1 text-emerald-600 hover:text-emerald-700">
-                      <Globe className="w-4 h-4" />
-                      <span>Visit</span>
-                    </button>
+                  
+                  {/* Contact Info */}
+                  <div className="flex items-center justify-between text-sm text-slate-600">
+                    <div className="flex items-center space-x-1">
+                      {business.opening_hours?.open_now !== undefined && (
+                        <>
+                          <Clock className="w-4 h-4" />
+                          <span className={business.opening_hours.open_now ? 'text-green-600' : 'text-red-600'}>
+                            {business.opening_hours.open_now ? 'Open now' : 'Closed'}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      {business.formatted_phone_number && (
+                        <a 
+                          href={`tel:${business.formatted_phone_number}`}
+                          className="flex items-center space-x-1 text-emerald-600 hover:text-emerald-700"
+                        >
+                          <Phone className="w-4 h-4" />
+                          <span>Call</span>
+                        </a>
+                      )}
+                      {business.website && (
+                        <a 
+                          href={business.website}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center space-x-1 text-emerald-600 hover:text-emerald-700"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                          <span>Visit</span>
+                        </a>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-            
-            {/* Address */}
-            <div className="mt-4 pt-4 border-t border-white/30">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2 text-sm text-slate-600">
-                  <MapPin className="w-4 h-4" />
-                  <span>{business.address}</span>
+              
+              {/* View on Maps */}
+              <div className="mt-4 pt-4 border-t border-white/30">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2 text-sm text-slate-600">
+                    <MapPin className="w-4 h-4" />
+                    <span>View on Google Maps</span>
+                  </div>
+                  <a
+                    href={`https://www.google.com/maps/place/?q=place_id:${business.place_id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center space-x-1 text-emerald-600 hover:text-emerald-700 font-medium text-sm"
+                  >
+                    <span>Directions</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </a>
                 </div>
-                <button className="flex items-center space-x-1 text-emerald-600 hover:text-emerald-700 font-medium text-sm">
-                  <span>View Details</span>
-                  <ChevronRight className="w-4 h-4" />
-                </button>
               </div>
-            </div>
-          </motion.div>
-        ))}
-      </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!isLoading && filteredBusinesses.length === 0 && userLocation && (
+        <motion.div
+          className="card text-center py-12"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <Leaf className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold text-slate-900 mb-2">No green businesses found</h3>
+          <p className="text-slate-600 mb-4">
+            Try expanding your search area or selecting a different category.
+          </p>
+          <button
+            onClick={() => setSelectedCategory('all')}
+            className="btn-primary"
+          >
+            Show All Categories
+          </button>
+        </motion.div>
+      )}
 
       {/* Call to Action */}
       <motion.div

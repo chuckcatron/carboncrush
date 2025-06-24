@@ -1,21 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { 
-  Building2, 
-  Handshake, 
-  TrendingUp, 
-  Users,
-  Award,
-  Star,
-  ExternalLink,
-  MapPin,
-  Phone,
-  Globe,
-  Leaf,
-  Crown,
-  Zap
-} from 'lucide-react';
+import { Building2, HeartHandshake as Handshake, TrendingUp, Users, Award, Star, ExternalLink, MapPin, Phone, Globe, Leaf, Crown, Zap } from 'lucide-react';
 import { useState } from 'react';
 
 interface Partner {

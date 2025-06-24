@@ -2,16 +2,7 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  Crown, 
-  Handshake, 
-  Leaf, 
-  TrendingUp,
-  DollarSign,
-  Users,
-  Award,
-  BarChart3
-} from 'lucide-react';
+import { Crown, HeartHandshake as Handshake, Leaf, TrendingUp, DollarSign, Users, Award, BarChart3 } from 'lucide-react';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import PremiumFeatures from '@/components/monetization/PremiumFeatures';
 import CarbonOffsetMarketplace from '@/components/monetization/CarbonOffsetMarketplace';

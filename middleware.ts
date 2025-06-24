@@ -1,19 +1,12 @@
 import { withAuth } from 'next-auth/middleware';
 import { NextRequest, NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
 
 function checkCustomAuth(request: NextRequest): boolean {
   // Check for custom auth token (Bolt environment)
+  // In middleware, we can only check if the token exists
+  // Actual verification happens in the API routes
   const token = request.cookies.get('auth-token')?.value;
-  if (token) {
-    try {
-      jwt.verify(token, process.env.NEXTAUTH_SECRET || 'J7DpgaKNQdWQdvf7hrI0imHDDk/HjBBG/snmulQzeUM=');
-      return true;
-    } catch (error) {
-      console.log('Custom token verification failed:', error);
-    }
-  }
-  return false;
+  return !!token;
 }
 
 export default withAuth(

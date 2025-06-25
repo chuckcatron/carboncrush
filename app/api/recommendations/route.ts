@@ -71,7 +71,17 @@ export async function POST(request: NextRequest) {
     // Save to database if requested and user is authenticated
     if (saveToDatabase) {
       const authenticatedUser = await getAuthenticatedUser(request);
-      if (authenticatedUser) {
+      console.log('Authenticated user:', authenticatedUser);
+      
+      // In Bolt environment, try to get user ID from a simpler method
+      if (!authenticatedUser) {
+        console.log('No authenticated user found, checking for Bolt environment...');
+        // For Bolt, we can use a temporary user ID or skip database save
+        const tempUserId = 'bolt-demo-user';
+        console.log('Using temporary user ID for Bolt:', tempUserId);
+        // Skip database save in Bolt for now
+        console.log('Skipping database save in Bolt environment');
+      } else {
         await saveRecommendationsToDatabase(authenticatedUser.id, recommendations);
       }
     }

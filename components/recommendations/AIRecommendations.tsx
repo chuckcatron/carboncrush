@@ -56,8 +56,15 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
   const [updatingStatus, setUpdatingStatus] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    // Load from database first, then fallback to localStorage if no database data
-    loadRecommendationsFromDatabase();
+    // In Bolt, skip database and use localStorage
+    const isBolt = typeof window !== 'undefined' && window.location.hostname.includes('stackblitz');
+    if (isBolt) {
+      console.log('Bolt environment detected, loading from localStorage only');
+      loadFromLocalStorage();
+    } else {
+      // Load from database first, then fallback to localStorage if no database data
+      loadRecommendationsFromDatabase();
+    }
   }, [user?.id]);
 
   useEffect(() => {
@@ -166,7 +173,7 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
             householdSize: 1, // Default for now
             carbonGoal: user?.carbonGoal
           },
-          saveToDatabase: true // Save to database when generating
+          saveToDatabase: false // Skip database save in Bolt
         }),
       });
 

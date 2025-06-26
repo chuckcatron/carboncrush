@@ -49,24 +49,34 @@ export default function OnboardingFlow() {
 
   const handleComplete = async () => {
     try {
+      console.log('=== STARTING ONBOARDING COMPLETION ===');
+      console.log('Onboarding data:', onboardingData);
+      
       // Create account if not already created
       if (!onboardingData.accountCreated && onboardingData.email && onboardingData.password) {
+        console.log('Creating account for:', onboardingData.email);
         toast.loading('Creating your account...');
         const result = await signup(onboardingData.email, onboardingData.password, onboardingData.name);
         
         if (!result.success) {
           toast.dismiss();
           toast.error(result.error || 'Failed to create account');
+          console.error('Account creation failed:', result.error);
           return;
         }
         
         toast.dismiss();
         toast.success('Account created successfully!');
+        console.log('Account created successfully');
       }
       
       // Complete onboarding with profile data (excluding password)
       const { password, confirmPassword, accountCreated, ...profileData } = onboardingData;
+      console.log('Profile data to save:', profileData);
+      console.log('About to call completeOnboarding with onboardingCompleted: true');
+      
       await completeOnboarding(profileData);
+      console.log('=== ONBOARDING COMPLETION FINISHED ===');
     } catch (error) {
       console.error('Error completing onboarding:', error);
       toast.error('Failed to complete onboarding. Please try again.');

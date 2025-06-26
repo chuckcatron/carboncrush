@@ -169,6 +169,16 @@ export default function LandingPage() {
                 Track your impact, get AI-powered recommendations, and join a community of climate warriors.
               </p>
               
+              <div className="flex items-center justify-center space-x-4 mb-8 p-4 glass rounded-xl border border-white/30">
+                <div className="text-center">
+                  <p className="text-sm text-slate-600 mb-1">Powered by</p>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs px-3 py-1 bg-blue-100 text-blue-700 rounded-full font-medium">🧠 Claude (Anthropic)</span>
+                    <span className="text-xs px-3 py-1 bg-green-100 text-green-700 rounded-full font-medium">⚡ GPT-4o (OpenAI)</span>
+                  </div>
+                </div>
+              </div>
+              
               <div className="flex flex-col sm:flex-row gap-4 mb-8">
                 <Link href="/auth" className="btn-primary text-lg py-4 px-8 flex items-center justify-center space-x-2">
                   <span>Start Your Journey</span>
@@ -317,6 +327,12 @@ export default function LandingPage() {
                       <div className="flex-1">
                         <h3 className="text-lg font-semibold text-slate-900 mb-2">{feature.title}</h3>
                         <p className="text-slate-600">{feature.description}</p>
+                        {feature.title === 'AI-Powered Recommendations' && (
+                          <div className="flex items-center space-x-2 mt-2">
+                            <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full font-medium">🧠 Claude</span>
+                            <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full font-medium">⚡ GPT-4o</span>
+                          </div>
+                        )}
                       </div>
                       <ChevronRight className={`w-5 h-5 transition-transform ${
                         activeFeature === index ? 'text-emerald-600 rotate-90' : 'text-slate-400'

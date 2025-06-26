@@ -92,7 +92,13 @@ export default function MainApp() {
                 <div className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center pulse-glow">
                   <Leaf className="w-6 h-6 text-white" />
                 </div>
-                <h1 className="text-2xl font-bold gradient-text">CarbonCrush</h1>
+                <div>
+                  <h1 className="text-2xl font-bold gradient-text">CarbonCrush</h1>
+                  <div className="flex items-center space-x-1 mt-1">
+                    <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-medium">🧠 Claude</span>
+                    <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full font-medium">⚡ GPT-4o</span>
+                  </div>
+                </div>
               </motion.div>
               
               <motion.div 

@@ -19,9 +19,11 @@ export async function POST(request: NextRequest) {
 
     // Initialize Supabase client
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const supabaseKey = serviceRoleKey || supabaseAnonKey;
 
-    if (!supabaseUrl || !supabaseAnonKey) {
+    if (!supabaseUrl || !supabaseKey) {
       console.error('Supabase configuration missing');
       return NextResponse.json(
         { error: 'Authentication service not configured' },
@@ -29,21 +31,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    console.log('Using service role key for signin:', !!serviceRoleKey);
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Find user
+    console.log('Looking for user with email:', email.toLowerCase());
     const { data: user, error } = await supabase
       .from('users')
       .select('*')
       .eq('email', email.toLowerCase())
       .single();
 
-    if (error || !user) {
+    if (error) {
+      console.error('Supabase error during user lookup:', error);
       return NextResponse.json(
         { error: 'Invalid email or password' },
         { status: 401 }
       );
     }
+
+    if (!user) {
+      console.log('No user found with email:', email.toLowerCase());
+      return NextResponse.json(
+        { error: 'Invalid email or password' },
+        { status: 401 }
+      );
+    }
+
+    console.log('User found:', user.id);
 
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.password);

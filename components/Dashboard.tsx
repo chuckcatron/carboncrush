@@ -1,11 +1,9 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { 
-  TrendingDown, 
-  Target, 
-  Award, 
-  Users,
+import {
+  Target,
+  Award,
   Leaf,
   Zap,
   Car,
@@ -30,14 +28,14 @@ export default function Dashboard() {
     console.log('=== DASHBOARD LOADING DATA ===');
     console.log('User:', user);
     console.log('User ID:', user?.id);
-    
+
     if (user?.id) {
       const savedCarbonData = localStorage.getItem(`carbonData_${user.id}`);
       const savedResults = localStorage.getItem(`carbonResults_${user.id}`);
-      
+
       console.log('Saved carbon data exists:', !!savedCarbonData);
       console.log('Saved results exist:', !!savedResults);
-      
+
       if (savedCarbonData) {
         try {
           const parsedData = JSON.parse(savedCarbonData);
@@ -47,7 +45,7 @@ export default function Dashboard() {
           console.error('Error loading carbon data:', error);
         }
       }
-      
+
       if (savedResults) {
         try {
           const parsedResults = JSON.parse(savedResults);
@@ -57,14 +55,14 @@ export default function Dashboard() {
           console.error('Error loading results:', error);
         }
       }
-      
+
       if (!savedCarbonData || !savedResults) {
         console.log('Missing data - user needs to complete carbon calculator first');
       }
     } else {
       console.log('No user ID available');
     }
-  }, [user?.id]);
+  }, [user?.id, user]);
   const stats = [
     {
       title: 'Monthly Carbon Footprint',
@@ -119,10 +117,10 @@ export default function Dashboard() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-3xl font-bold gradient-text mb-2">
-              Welcome back, Alex! 🌱
+              Welcome back, {user?.name || 'Alex'}! 🌱
             </h2>
             <p className="text-slate-600">
-              You've reduced your carbon footprint by 12% this month. Keep crushing it!
+              You&apos;ve reduced your carbon footprint by 12% this month. Keep crushing it!
             </p>
           </div>
           <div className="hidden md:block">
@@ -138,7 +136,7 @@ export default function Dashboard() {
         {stats.map((stat, index) => {
           const Icon = stat.icon;
           const isPositive = stat.trend === 'up';
-          
+
           return (
             <motion.div
               key={stat.title}

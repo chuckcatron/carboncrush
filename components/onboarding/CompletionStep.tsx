@@ -51,10 +51,10 @@ export default function CompletionStep({
         transition={{ duration: 0.5, delay: 0.2 }}
       >
         <h2 className="text-3xl font-bold gradient-text mb-2">
-          You're All Set! 🎉
+          You&apos;re All Set! 🎉
         </h2>
         <p className="text-slate-600 mb-8 text-lg">
-          Welcome to your personalized climate action journey. Here's what you can do next:
+          Welcome to your personalized climate action journey. Here&apos;s what you can do next:
         </p>
       </motion.div>
 

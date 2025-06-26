@@ -53,7 +53,7 @@ export default function UserProfile() {
     },
     {
       label: 'Member Since',
-      value: user?.joinDate ? new Date(user.joinDate).toLocaleDateString('en-US', { 
+      value: (user as any)?.joinDate ? new Date((user as any).joinDate).toLocaleDateString('en-US', { 
         month: 'short', 
         year: 'numeric' 
       }) : 'Recently',
@@ -273,7 +273,7 @@ export default function UserProfile() {
                   checked={user.preferences?.[pref.key as keyof typeof user.preferences] || false}
                   onChange={(e) => updateProfile({
                     preferences: {
-                      ...user.preferences,
+                      ...((user.preferences as any) || {}),
                       [pref.key]: e.target.checked
                     }
                   })}

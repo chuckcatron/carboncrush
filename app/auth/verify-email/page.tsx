@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { CheckCircle, XCircle, Loader2, Mail } from 'lucide-react';
@@ -9,23 +9,13 @@ import toast from 'react-hot-toast';
 export default function VerifyEmailPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const token = searchParams.get('token');
+  const token = searchParams?.get('token');
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    if (!token) {
-      setError('Invalid verification link');
-      setIsLoading(false);
-      return;
-    }
-
-    verifyEmail();
-  }, [token]);
-
-  const verifyEmail = async () => {
+  const verifyEmail = useCallback(async () => {
     try {
       const response = await fetch('/api/auth/verify-email', {
         method: 'POST',
@@ -52,7 +42,17 @@ export default function VerifyEmailPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [token, router]);
+
+  useEffect(() => {
+    if (!token) {
+      setError('Invalid verification link');
+      setIsLoading(false);
+      return;
+    }
+
+    verifyEmail();
+  }, [token, verifyEmail]);
 
   if (isLoading) {
     return (

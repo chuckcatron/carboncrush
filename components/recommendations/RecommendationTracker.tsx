@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Target, 
@@ -41,7 +41,7 @@ export default function RecommendationTracker() {
     }
   }, [user?.id]);
 
-  const calculateStats = () => {
+  const calculateStats = useCallback(() => {
     const recommendations = JSON.parse(localStorage.getItem(`recommendations_${user?.id}`) || '[]');
     
     if (recommendations.length === 0) {
@@ -81,7 +81,7 @@ export default function RecommendationTracker() {
       completionRate,
       averageTimeToComplete
     });
-  };
+  }, [user?.id]);
 
   const statCards = [
     {

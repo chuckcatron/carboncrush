@@ -80,12 +80,12 @@ export default function ForgotPasswordForm({ onBackToLogin }: ForgotPasswordForm
           
           <h2 className="text-2xl font-bold text-slate-900 mb-2">Check Your Email</h2>
           <p className="text-slate-600 mb-6">
-            We've sent password reset instructions to <strong>{email}</strong>
+            We&apos;ve sent password reset instructions to <strong>{email}</strong>
           </p>
           
           <div className="space-y-4">
             <p className="text-sm text-slate-500">
-              Didn't receive the email? Check your spam folder or try again.
+              Didn&apos;t receive the email? Check your spam folder or try again.
             </p>
             
             <button
@@ -112,7 +112,7 @@ export default function ForgotPasswordForm({ onBackToLogin }: ForgotPasswordForm
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold gradient-text mb-2">Reset Password</h2>
           <p className="text-slate-600">
-            Enter your email address and we'll send you instructions to reset your password.
+            Enter your email address and we&apos;ll send you instructions to reset your password.
           </p>
         </div>
 

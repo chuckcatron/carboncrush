@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import jwt from 'jsonwebtoken';
 
+// Force Node.js runtime for JWT and crypto support
+export const runtime = 'nodejs';
+
 async function getAuthenticatedUser(request: NextRequest, userId: string) {
   // Try custom auth token first (for Bolt environment)
   const token = request.cookies.get('auth-token')?.value;
@@ -34,25 +37,44 @@ export async function POST(request: NextRequest) {
     console.log('GET profile for user:', userId);
     
     const authenticatedUser = await getAuthenticatedUser(request, userId);
+    
     if (!authenticatedUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    
+    console.log('Auth check passed, fetching user from database...');
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     
-    if (!supabaseUrl || !supabaseAnonKey) {
+    const supabaseKey = serviceRoleKey || supabaseAnonKey;
+    
+    if (!supabaseUrl || !supabaseKey) {
       return NextResponse.json({ error: 'Database service not configured' }, { status: 500 });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-    const { data: user, error } = await supabase
+    console.log('Using service role key:', !!serviceRoleKey);
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const { data: users, error } = await supabase
       .from('users')
       .select('*')
-      .eq('id', userId)
-      .single();
+      .eq('id', userId);
     
-    if (error || !user) {
+    const user = users && users.length > 0 ? users[0] : null;
+    
+    console.log('Query result - users found:', users?.length || 0);
+    console.log('User ID being queried:', userId);
+    
+    if (error) {
+      console.error('Supabase error:', error);
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
+      return NextResponse.json({ error: error.message || 'Database error' }, { status: 500 });
+    }
+    
+    if (!user) {
+      console.log('No user found with ID:', userId);
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Lightbulb, 
@@ -55,26 +55,24 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [updatingStatus, setUpdatingStatus] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    // In Bolt, skip database and use localStorage
-    const isBolt = typeof window !== 'undefined' && window.location.hostname.includes('stackblitz');
-    if (isBolt) {
-      console.log('Bolt environment detected, loading from localStorage only');
-      loadFromLocalStorage();
-    } else {
-      // Load from database first, then fallback to localStorage if no database data
-      loadRecommendationsFromDatabase();
+  const loadFromLocalStorage = useCallback(() => {
+    if (user?.id) {
+      const saved = localStorage.getItem(`recommendations_${user.id}`);
+      if (saved) {
+        try {
+          const parsedRecommendations = JSON.parse(saved);
+          console.log('FALLBACK: Loading recommendations from localStorage:', parsedRecommendations);
+          setRecommendations(parsedRecommendations);
+        } catch (error) {
+          console.error('Error loading recommendations from localStorage:', error);
+        }
+      } else {
+        console.log('No localStorage data found');
+      }
     }
   }, [user?.id]);
 
-  useEffect(() => {
-    // Auto-generate recommendations when carbon data is available
-    if (carbonData && results && recommendations.length === 0) {
-      generateRecommendations();
-    }
-  }, [carbonData, results]);
-
-  const loadRecommendationsFromDatabase = async () => {
+  const loadRecommendationsFromDatabase = useCallback(async () => {
     if (!user?.id) return;
 
     try {
@@ -108,26 +106,14 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
       // Database failed, try localStorage as fallback
       loadFromLocalStorage();
     }
-  };
+  }, [user?.id, loadFromLocalStorage]);
 
-  const loadFromLocalStorage = () => {
-    if (user?.id) {
-      const saved = localStorage.getItem(`recommendations_${user.id}`);
-      if (saved) {
-        try {
-          const parsedRecommendations = JSON.parse(saved);
-          console.log('FALLBACK: Loading recommendations from localStorage:', parsedRecommendations);
-          setRecommendations(parsedRecommendations);
-        } catch (error) {
-          console.error('Error loading recommendations from localStorage:', error);
-        }
-      } else {
-        console.log('No localStorage data found');
-      }
-    }
-  };
+  useEffect(() => {
+    // Load from database first, then fallback to localStorage if no database data
+    loadRecommendationsFromDatabase();
+  }, [loadRecommendationsFromDatabase]);
 
-  const generateRecommendations = async () => {
+  const generateRecommendations = useCallback(async () => {
     console.log('=== GENERATE RECOMMENDATIONS CLICKED ===');
     console.log('carbonData:', carbonData);
     console.log('results:', results);
@@ -173,7 +159,7 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
             householdSize: 1, // Default for now
             carbonGoal: user?.carbonGoal
           },
-          saveToDatabase: false // Skip database save in Bolt
+          saveToDatabase: true // Save to database
         }),
       });
 
@@ -217,14 +203,21 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [carbonData, results, user, recommendations, onRecommendationUpdate, loadRecommendationsFromDatabase]);
 
-  const saveRecommendations = (recs: Recommendation[]) => {
+  useEffect(() => {
+    // Auto-generate recommendations when carbon data is available
+    if (carbonData && results && recommendations.length === 0) {
+      generateRecommendations();
+    }
+  }, [carbonData, results, recommendations.length, generateRecommendations]);
+
+  const saveRecommendations = useCallback((recs: Recommendation[]) => {
     if (user?.id) {
       localStorage.setItem(`recommendations_${user.id}`, JSON.stringify(recs));
       console.log('Saved recommendations to localStorage:', recs);
     }
-  };
+  }, [user?.id]);
 
   const updateRecommendationStatus = async (id: string, status: Recommendation['status']) => {
     console.log('=== START updateRecommendationStatus ===');
@@ -247,7 +240,7 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
     }
 
     // Add to updating set to show loading state
-    setUpdatingStatus(prev => new Set([...prev, id]));
+    setUpdatingStatus(prev => new Set(Array.from(prev).concat(id)));
 
     try {
       // Update local state immediately for better UX
@@ -268,32 +261,39 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
       saveRecommendations(updated);
       onRecommendationUpdate?.(updated);
 
-      // Try to update in database if we have a database ID
-      if (recommendation.dbId) {
-        console.log('Updating recommendation in database:', recommendation.dbId);
-        
-        // Use POST for Bolt environment compatibility
-        const response = await fetch(`/api/recommendations/${recommendation.dbId}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            status,
-            userId: user.id
-          }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.error('Database update failed:', errorData);
-          // Don't throw error here - local update already succeeded
-          toast.error('Status updated locally. Database sync may have failed.');
-        } else {
-          console.log('Database update successful');
-        }
+      // Check if in Bolt environment
+      const isBolt = typeof window !== 'undefined' && window.location.hostname.includes('stackblitz');
+      
+      if (isBolt) {
+        console.log('Bolt environment - skipping database update');
       } else {
-        console.log('No database ID - only updating locally');
+        // Try to update in database if we have a database ID
+        if (recommendation.dbId) {
+          console.log('Updating recommendation in database:', recommendation.dbId);
+          
+          // Use POST for Bolt environment compatibility
+          const response = await fetch(`/api/recommendations/${recommendation.dbId}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              status,
+              userId: user.id
+            }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            console.error('Database update failed:', errorData);
+            // Don't throw error here - local update already succeeded
+            toast.error('Status updated locally. Database sync may have failed.');
+          } else {
+            console.log('Database update successful');
+          }
+        } else {
+          console.log('No database ID - only updating locally');
+        }
       }
 
       // Show success message
@@ -464,7 +464,7 @@ export default function AIRecommendations({ carbonData, results, onRecommendatio
             <Lightbulb className="w-16 h-16 text-slate-300 mx-auto mb-4" />
             <h4 className="text-lg font-semibold text-slate-900 mb-2">Get Personalized Recommendations</h4>
             <p className="text-slate-600 mb-4">
-              Click "Generate" to get AI-powered recommendations based on your carbon footprint.
+              Click &quot;Generate&quot; to get AI-powered recommendations based on your carbon footprint.
             </p>
           </div>
         )

@@ -25,7 +25,7 @@ export function useSupabaseQuery<T>(
         if (error) {
           setError(error);
         } else {
-          setData(data);
+          setData(data as T[]);
         }
       } catch (err) {
         setError(err as PostgrestError);

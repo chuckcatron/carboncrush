@@ -153,11 +153,11 @@ export default function ContactPage() {
           transition={{ duration: 0.8 }}
         >
           <h1 className="text-5xl font-bold text-slate-900 mb-6">
-            Let's <span className="gradient-text">Connect</span>
+            Let&apos;s <span className="gradient-text">Connect</span>
           </h1>
           <p className="text-xl text-slate-600 max-w-3xl mx-auto">
             Have questions about CarbonCrush? Want to partner with us? 
-            We'd love to hear from you and help you on your climate journey.
+            We&apos;d love to hear from you and help you on your climate journey.
           </p>
         </motion.div>
 
@@ -373,7 +373,7 @@ export default function ContactPage() {
                 <h3 className="text-lg font-bold text-slate-900">Fast Response Guaranteed</h3>
               </div>
               <p className="text-slate-600 mb-4">
-                We're committed to helping you succeed. Our team responds to all inquiries within 24 hours.
+                We&apos;re committed to helping you succeed. Our team responds to all inquiries within 24 hours.
               </p>
               <div className="flex items-center space-x-2 text-emerald-600">
                 <CheckCircle className="w-4 h-4" />
@@ -395,7 +395,7 @@ export default function ContactPage() {
           </div>
           <h3 className="text-2xl font-bold text-slate-900 mb-4">Ready to Start Your Climate Journey?</h3>
           <p className="text-slate-600 mb-6 max-w-2xl mx-auto">
-            Don't wait to make a difference. Join thousands of climate warriors who are already 
+            Don&apos;t wait to make a difference. Join thousands of climate warriors who are already 
             reducing their carbon footprint and fighting climate change.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import jwt from 'jsonwebtoken';
 
+// Force Node.js runtime for JWT and crypto support
+export const runtime = 'nodejs';
+
 async function getAuthenticatedUser(request: NextRequest, userId: string) {
   // Try custom auth token first (for Bolt environment)
   const token = request.cookies.get('auth-token')?.value;
@@ -34,6 +37,7 @@ export async function POST(request: NextRequest) {
     console.log('POST /api/update-profile - User ID:', userId);
     
     const authenticatedUser = await getAuthenticatedUser(request, userId);
+    
     if (!authenticatedUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -120,13 +124,21 @@ export async function POST(request: NextRequest) {
     console.log('Supabase updates:', supabaseUpdates);
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     
-    if (!supabaseUrl || !supabaseAnonKey) {
+    console.log('Supabase URL exists:', !!supabaseUrl);
+    console.log('Service role key exists:', !!serviceRoleKey);
+    console.log('Anon key exists:', !!anonKey);
+    console.log('Using service role key:', !!serviceRoleKey);
+    
+    if (!supabaseUrl || (!serviceRoleKey && !anonKey)) {
       return NextResponse.json({ error: 'Database service not configured' }, { status: 500 });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    // Use service role key if available (bypasses RLS)
+    const supabaseKey = serviceRoleKey || anonKey;
+    const supabase = createClient(supabaseUrl, supabaseKey!);
     const { data: updatedUser, error } = await supabase
       .from('users')
       .update(supabaseUpdates)

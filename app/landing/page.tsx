@@ -360,7 +360,7 @@ export default function LandingPage() {
               Why Choose CarbonCrush?
             </h2>
             <p className="text-xl text-slate-600 max-w-3xl mx-auto">
-              Join the movement that's making climate action accessible, rewarding, and effective for everyone.
+              Join the movement that&apos;s making climate action accessible, rewarding, and effective for everyone.
             </p>
           </motion.div>
 
@@ -429,7 +429,7 @@ export default function LandingPage() {
                     <p className="text-sm text-slate-600">{testimonial.role}</p>
                   </div>
                 </div>
-                <p className="text-slate-700 italic">"{testimonial.quote}"</p>
+                <p className="text-slate-700 italic">&quot;{testimonial.quote}&quot;</p>
                 <div className="flex items-center space-x-1 mt-4">
                   {[...Array(5)].map((_, i) => (
                     <Star key={i} className="w-4 h-4 text-yellow-400 fill-current" />

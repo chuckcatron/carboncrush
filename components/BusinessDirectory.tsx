@@ -21,7 +21,7 @@ import {
   ExternalLink,
   Navigation
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import toast from 'react-hot-toast';
 
@@ -77,35 +77,7 @@ export default function BusinessDirectory() {
     { id: 'services', name: 'Services', icon: Home, keywords: ['green cleaning', 'eco-friendly services', 'sustainable business'] }
   ];
 
-  useEffect(() => {
-    // Set user location from onboarding
-    if (user?.location) {
-      setUserLocation(user.location);
-      searchGreenBusinesses(user.location, selectedCategory);
-    }
-  }, [user?.location, selectedCategory]);
-
-  const getCurrentLocation = () => {
-    if (navigator.geolocation) {
-      setIsLoading(true);
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          setCurrentLocation({ lat: latitude, lng: longitude });
-          searchGreenBusinessesByCoords(latitude, longitude, selectedCategory);
-        },
-        (error) => {
-          console.error('Error getting location:', error);
-          toast.error('Could not get your current location');
-          setIsLoading(false);
-        }
-      );
-    } else {
-      toast.error('Geolocation is not supported by this browser');
-    }
-  };
-
-  const searchGreenBusinesses = async (location: string, category: string) => {
+  const searchGreenBusinesses = useCallback(async (location: string, category: string) => {
     if (!location.trim()) return;
     
     setIsLoading(true);
@@ -133,6 +105,34 @@ export default function BusinessDirectory() {
       setBusinesses(getMockBusinesses());
     } finally {
       setIsLoading(false);
+    }
+  }, [searchTerm]);
+
+  useEffect(() => {
+    // Set user location from onboarding
+    if (user?.location) {
+      setUserLocation(user.location);
+      searchGreenBusinesses(user.location, selectedCategory);
+    }
+  }, [user?.location, selectedCategory, searchGreenBusinesses]);
+
+  const getCurrentLocation = () => {
+    if (navigator.geolocation) {
+      setIsLoading(true);
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setCurrentLocation({ lat: latitude, lng: longitude });
+          searchGreenBusinessesByCoords(latitude, longitude, selectedCategory);
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+          toast.error('Could not get your current location');
+          setIsLoading(false);
+        }
+      );
+    } else {
+      toast.error('Geolocation is not supported by this browser');
     }
   };
 

@@ -30,6 +30,10 @@ async function getAuthenticatedUser(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  // Declare variables in outer scope for catch block access
+  let carbonData: any;
+  let results: any;
+  
   try {
     console.log('=== RECOMMENDATIONS API CALLED ===');
     console.log('Request method:', request.method);
@@ -47,7 +51,8 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const { carbonData, results, userProfile, saveToDatabase = false } = requestData;
+    ({ carbonData, results } = requestData);
+    const { userProfile, saveToDatabase = false } = requestData;
     console.log('Request data received:', { 
       hasCarbonData: !!carbonData, 
       hasResults: !!results, 
@@ -73,16 +78,10 @@ export async function POST(request: NextRequest) {
       const authenticatedUser = await getAuthenticatedUser(request);
       console.log('Authenticated user:', authenticatedUser);
       
-      // In Bolt environment, try to get user ID from a simpler method
-      if (!authenticatedUser) {
-        console.log('No authenticated user found, checking for Bolt environment...');
-        // For Bolt, we can use a temporary user ID or skip database save
-        const tempUserId = 'bolt-demo-user';
-        console.log('Using temporary user ID for Bolt:', tempUserId);
-        // Skip database save in Bolt for now
-        console.log('Skipping database save in Bolt environment');
-      } else {
+      if (authenticatedUser) {
         await saveRecommendationsToDatabase(authenticatedUser.id, recommendations);
+      } else {
+        console.log('No authenticated user found - not saving to database');
       }
     }
 
@@ -90,12 +89,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ recommendations });
   } catch (error) {
     console.error('=== ERROR IN RECOMMENDATIONS API ===');
-    console.error('Error type:', error.constructor.name);
-    console.error('Error message:', error.message);
-    console.error('Error stack:', error.stack);
+    console.error('Error type:', (error as any)?.constructor?.name);
+    console.error('Error message:', (error as any)?.message);
+    console.error('Error stack:', (error as any)?.stack);
     
     // Check if we have the data needed for fallback
-    let fallbackRecommendations = [];
+    let fallbackRecommendations: any[] = [];
     try {
       if (typeof carbonData !== 'undefined' && typeof results !== 'undefined') {
         fallbackRecommendations = generateFallbackRecommendations(carbonData, results);
@@ -109,7 +108,7 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json(
       { 
-        error: error.message || 'Internal server error',
+        error: (error as any)?.message || 'Internal server error',
         fallback: fallbackRecommendations.length > 0,
         recommendations: fallbackRecommendations 
       },
@@ -126,13 +125,15 @@ export async function GET(request: NextRequest) {
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const supabaseKey = serviceRoleKey || supabaseAnonKey;
     
-    if (!supabaseUrl || !supabaseAnonKey) {
+    if (!supabaseUrl || !supabaseKey) {
       return NextResponse.json({ error: 'Database service not configured' }, { status: 500 });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Get user's recommendations
     const { data: recommendations, error } = await supabase
@@ -156,14 +157,16 @@ export async function GET(request: NextRequest) {
 
 async function saveRecommendationsToDatabase(userId: string, recommendations: any[]) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseKey = serviceRoleKey || supabaseAnonKey;
   
-  if (!supabaseUrl || !supabaseAnonKey) {
+  if (!supabaseUrl || !supabaseKey) {
     console.error('Supabase not configured');
     return;
   }
 
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  const supabase = createClient(supabaseUrl, supabaseKey);
 
   // Get existing recommendations to check for duplicates
   const { data: existing } = await supabase

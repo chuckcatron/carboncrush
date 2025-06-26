@@ -414,7 +414,7 @@ export default function PricingPage() {
           <h3 className="text-2xl font-bold text-slate-900 mb-4">Ready to Start Your Climate Journey?</h3>
           <p className="text-slate-600 mb-6 max-w-2xl mx-auto">
             Join thousands of climate warriors who are already making a difference. 
-            Start free and upgrade when you're ready to maximize your impact.
+            Start free and upgrade when you&apos;re ready to maximize your impact.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/auth" className="btn-primary flex items-center justify-center space-x-2">

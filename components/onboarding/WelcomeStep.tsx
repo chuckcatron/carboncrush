@@ -47,7 +47,7 @@ export default function WelcomeStep({ onNext }: WelcomeStepProps) {
       </h1>
       
       <p className="text-slate-600 mb-8 text-lg">
-        Let's set up your profile and start your journey toward a more sustainable lifestyle.
+        Let&apos;s set up your profile and start your journey toward a more sustainable lifestyle.
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -80,7 +80,7 @@ export default function WelcomeStep({ onNext }: WelcomeStepProps) {
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
       >
-        <span>Let's Get Started</span>
+        <span>Let&apos;s Get Started</span>
         <motion.div
           animate={{ x: [0, 5, 0] }}
           transition={{ duration: 1.5, repeat: Infinity }}

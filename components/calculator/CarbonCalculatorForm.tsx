@@ -185,12 +185,35 @@ export default function CarbonCalculatorForm() {
     setShowRecommendations(true);
     setIsCalculating(false);
     
-    // Save results
+    // Save results to localStorage
     if (user?.id) {
       localStorage.setItem(`carbonResults_${user.id}`, JSON.stringify(calculationResults));
     }
     
-    toast.success('Carbon footprint calculated!');
+    // Save to database
+    try {
+      const response = await fetch('/api/carbon-calculations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          carbonData,
+          results: calculationResults
+        }),
+      });
+
+      if (response.ok) {
+        console.log('Carbon calculation saved to database');
+        toast.success('Carbon footprint calculated and saved!');
+      } else {
+        console.error('Failed to save to database:', response.status);
+        toast.success('Carbon footprint calculated! (Local save only)');
+      }
+    } catch (error) {
+      console.error('Error saving to database:', error);
+      toast.success('Carbon footprint calculated! (Local save only)');
+    }
   };
 
   const renderCategoryForm = () => {

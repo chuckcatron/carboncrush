@@ -93,7 +93,6 @@ export const authOptions: NextAuthOptions = {
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   jwt: {
-    secret: process.env.NEXTAUTH_SECRET,
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   callbacks: {
@@ -103,7 +102,7 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id;
         token.email = user.email;
         token.name = user.name;
-        token.emailVerified = user.emailVerified;
+        token.emailVerified = !!user.emailVerified;
         token.onboardingCompleted = user.onboardingCompleted;
       }
       
@@ -135,13 +134,8 @@ export const authOptions: NextAuthOptions = {
   },
   pages: {
     signIn: '/auth',
-    signUp: '/auth',
     error: '/auth',
-  },
-  secret: process.env.NEXTAUTH_SECRET || 'J7DpgaKNQdWQdvf7hrI0imHDDk/HjBBG/snmulQzeUM=',
-  trustHost: true,
-  debug: true, // Enable debug mode for better error logging
-  url: process.env.NEXTAUTH_URL || 'http://localhost:3000'
+  }
 };
 
 export async function hashPassword(password: string): Promise<string> {

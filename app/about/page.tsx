@@ -147,10 +147,10 @@ export default function AboutPage() {
           transition={{ duration: 0.8 }}
         >
           <h1 className="text-5xl font-bold text-slate-900 mb-6">
-            We're on a <span className="gradient-text">Mission</span> to Save Our Planet
+            We&apos;re on a <span className="gradient-text">Mission</span> to Save Our Planet
           </h1>
           <p className="text-xl text-slate-600 max-w-3xl mx-auto mb-8">
-            CarbonCrush makes climate action fun, social, and rewarding. We're building the world's 
+            CarbonCrush makes climate action fun, social, and rewarding. We&apos;re building the world&apos;s 
             largest community of climate warriors, one sustainable action at a time.
           </p>
           <div className="flex justify-center">
@@ -336,7 +336,7 @@ export default function AboutPage() {
             <h2 className="text-3xl font-bold text-slate-900 mb-6">Our Environmental Impact</h2>
             <p className="text-slate-600 mb-8 max-w-2xl mx-auto">
               Together, our community has achieved remarkable environmental impact. 
-              Here's what we've accomplished so far:
+              Here&apos;s what we&apos;ve accomplished so far:
             </p>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">

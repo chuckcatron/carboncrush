@@ -289,7 +289,7 @@ export default function PremiumFeatures() {
         </div>
         <h3 className="text-lg font-bold text-slate-900 mb-2">30-Day Money Back Guarantee</h3>
         <p className="text-slate-600">
-          Not satisfied? Get a full refund within 30 days, no questions asked. We're confident you'll love the impact you can make.
+          Not satisfied? Get a full refund within 30 days, no questions asked. We&apos;re confident you&apos;ll love the impact you can make.
         </p>
       </motion.div>
     </div>

@@ -69,7 +69,7 @@ export default function CarbonChart() {
           padding: 20,
           font: {
             size: 12,
-            weight: '500'
+            weight: 'bold' as const
           }
         }
       },
@@ -97,7 +97,7 @@ export default function CarbonChart() {
         ticks: {
           font: {
             size: 11,
-            weight: '500'
+            weight: 'normal' as const
           },
           color: 'rgb(100, 116, 139)'
         }
@@ -111,7 +111,7 @@ export default function CarbonChart() {
         ticks: {
           font: {
             size: 11,
-            weight: '500'
+            weight: 'normal' as const
           },
           color: 'rgb(100, 116, 139)',
           callback: function(value: any) {

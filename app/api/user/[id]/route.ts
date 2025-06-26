@@ -7,6 +7,9 @@ import { eq } from 'drizzle-orm';
 import { createClient } from '@supabase/supabase-js';
 import jwt from 'jsonwebtoken';
 
+// Force Node.js runtime for JWT and crypto support
+export const runtime = 'nodejs';
+
 async function getAuthenticatedUser(request: NextRequest, userId: string) {
   // Try custom auth token first (for Bolt environment)
   const token = request.cookies.get('auth-token')?.value;
@@ -53,15 +56,25 @@ export async function GET(
 
     // Try Supabase first (for Bolt environment)
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     
-    if (supabaseUrl && supabaseAnonKey) {
-      const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const supabaseKey = serviceRoleKey || supabaseAnonKey;
+    
+    if (supabaseUrl && supabaseKey) {
+      console.log('Using Supabase with service role key:', !!serviceRoleKey);
+      const supabase = createClient(supabaseUrl, supabaseKey);
       const { data: user, error } = await supabase
         .from('users')
         .select('*')
         .eq('id', params.id)
         .single();
+      
+      if (error) {
+        console.error('Supabase error:', error);
+        console.error('Error code:', error.code);
+        console.error('Error message:', error.message);
+      }
       
       if (!error && user) {
         // Convert snake_case to camelCase for response

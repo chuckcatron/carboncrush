@@ -40,7 +40,7 @@ export default function MainApp() {
 
   // Show onboarding if user hasn't completed it
   // Check both camelCase and snake_case versions for compatibility
-  const onboardingCompleted = user?.onboardingCompleted || user?.onboarding_completed;
+  const onboardingCompleted = user?.onboardingCompleted || (user as any)?.onboarding_completed;
   
   if (!onboardingCompleted) {
     console.log('Showing onboarding flow - onboardingCompleted:', onboardingCompleted);
@@ -115,7 +115,7 @@ export default function MainApp() {
                     <span className="text-sm font-medium text-slate-700 hidden md:block">
                       {user?.name?.split(' ')[0]}
                     </span>
-                    {!(user?.emailVerified || user?.email_verified) && (
+                    {!(user?.emailVerified || (user as any)?.email_verified) && (
                       <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
                     )}
                   </button>

@@ -5,8 +5,13 @@ import { hashPassword } from '@/lib/auth';
 import { eq } from 'drizzle-orm';
 import { Resend } from 'resend';
 import crypto from 'crypto';
+import { createClient } from '@supabase/supabase-js';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Force Node.js runtime for crypto support
+export const runtime = 'nodejs';
+
+// Initialize Resend only if API key is available
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,13 +45,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user already exists with timeout
-    const existingUser = await Promise.race([
-      db.select().from(users).where(eq(users.email, normalizedEmail)).limit(1),
-      new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Database query timeout')), 10000)
-      )
-    ]) as any[];
+    // Check if user already exists using Supabase (to handle RLS)
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const supabaseKey = serviceRoleKey || supabaseAnonKey;
+    
+    let existingUser = [];
+    
+    if (supabaseUrl && supabaseKey) {
+      console.log('Checking existing user with Supabase...');
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, email')
+        .eq('email', normalizedEmail);
+      
+      if (error) {
+        console.error('Supabase query error:', error);
+        // Fall back to Drizzle if Supabase fails
+        existingUser = await db.select().from(users).where(eq(users.email, normalizedEmail)).limit(1);
+      } else {
+        existingUser = data || [];
+      }
+    } else {
+      // Fallback to Drizzle ORM
+      existingUser = await db.select().from(users).where(eq(users.email, normalizedEmail)).limit(1);
+    }
     
     if (existingUser.length > 0) {
       return NextResponse.json(
@@ -58,9 +83,35 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await hashPassword(password);
 
-    // Create user with timeout
-    const newUser = await Promise.race([
-      db.insert(users).values({
+    // Create user using Supabase (to handle RLS)
+    let newUser = [];
+    
+    if (supabaseUrl && supabaseKey) {
+      console.log('Creating user with Supabase...');
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      const { data, error } = await supabase
+        .from('users')
+        .insert({
+          email: normalizedEmail,
+          password: hashedPassword,
+          name: trimmedName,
+          location: metadata.location || null,
+          carbon_goal: metadata.carbonGoal || 2000,
+          subscribe_newsletter: metadata.subscribeNewsletter || false,
+          signup_source: metadata.signupSource || 'web',
+        })
+        .select('*')
+        .single();
+      
+      if (error) {
+        console.error('Supabase insert error:', error);
+        throw new Error(`Failed to create user: ${error.message}`);
+      } else {
+        newUser = [data];
+      }
+    } else {
+      // Fallback to Drizzle ORM
+      newUser = await db.insert(users).values({
         email: normalizedEmail,
         password: hashedPassword,
         name: trimmedName,
@@ -68,30 +119,60 @@ export async function POST(request: NextRequest) {
         carbonGoal: metadata.carbonGoal || 2000,
         subscribeNewsletter: metadata.subscribeNewsletter || false,
         signupSource: metadata.signupSource || 'web',
-      }).returning(),
-      new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Database insert timeout')), 10000)
-      )
-    ]) as any[];
+      }).returning();
+    }
 
-    // Send verification email
+    // Send verification email (optional - don't fail signup if this fails)
     try {
-      const token = crypto.randomBytes(32).toString('hex');
-      const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + 24); // Token expires in 24 hours
+      // Check if Resend is configured
+      if (!process.env.RESEND_API_KEY || !resend) {
+        console.log('Resend API key not configured - skipping email verification');
+      } else {
+        console.log('Attempting to send verification email...');
+        console.log('Resend API key exists:', !!process.env.RESEND_API_KEY);
+        console.log('API key starts with:', process.env.RESEND_API_KEY?.substring(0, 10) + '...');
+        
+        const token = crypto.randomBytes(32).toString('hex');
+        const expiresAt = new Date();
+        expiresAt.setHours(expiresAt.getHours() + 24); // Token expires in 24 hours
 
-      // Save verification token
-      await db.insert(emailVerificationTokens).values({
-        userId: newUser[0].id,
-        token,
-        expiresAt,
-      });
+        // Save verification token using Supabase
+        if (supabaseUrl && supabaseKey) {
+          console.log('Saving verification token to Supabase...');
+          const supabase = createClient(supabaseUrl, supabaseKey);
+          const { error: tokenError } = await supabase
+            .from('email_verification_tokens')
+            .insert({
+              user_id: newUser[0].id,
+              token,
+              expires_at: expiresAt.toISOString(),
+              created_at: new Date().toISOString()
+            });
+          
+          if (tokenError) {
+            console.error('Error saving token to Supabase:', tokenError);
+            // Fall back to Drizzle
+            await db.insert(emailVerificationTokens).values({
+              userId: newUser[0].id,
+              token,
+              expiresAt,
+            });
+          }
+        } else {
+          // Fallback to Drizzle
+          await db.insert(emailVerificationTokens).values({
+            userId: newUser[0].id,
+            token,
+            expiresAt,
+          });
+        }
 
-      // Send verification email
-      const verificationUrl = `${process.env.NEXTAUTH_URL}/auth/verify-email?token=${token}`;
-      
-      await resend.emails.send({
-        from: 'CarbonCrush <onboarding@resend.dev>',
+        // Send verification email with proper domain
+        const verificationUrl = `${process.env.NEXTAUTH_URL}/auth/verify-email?token=${token}`;
+        
+        console.log('Sending email from domain...');
+        const emailResult = await resend.emails.send({
+        from: 'CarbonCrush <delivered@resend.dev>',
         to: email,
         subject: 'Welcome to CarbonCrush! Please verify your email',
         html: `
@@ -105,9 +186,15 @@ export async function POST(request: NextRequest) {
           <hr>
           <p style="color: #666; font-size: 12px;">This email was sent from CarbonCrush. If you have any questions, please contact support.</p>
         `,
-      });
+        });
+        
+        console.log('Verification email sent successfully');
+        console.log('Email result:', emailResult);
+      }
     } catch (emailError) {
       console.error('Failed to send verification email:', emailError);
+      console.error('Email error details:', (emailError as any)?.message);
+      console.error('Email error response:', (emailError as any)?.response?.data);
       // Don't fail signup if email fails, just log it
     }
 

@@ -256,7 +256,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.error("No user available for profile update");
       console.error("User state:", user);
       console.error("Session state:", isBoltEnv ? customSession : session);
-      return;
+      throw new Error("No user available for profile update");
+    }
+    
+    if (!currentUser.id) {
+      console.error("User has no ID:", currentUser);
+      throw new Error("User ID is missing");
     }
 
     try {
@@ -267,12 +272,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       let response;
 
       if (isBoltEnv) {
+        const requestBody = { userId: currentUser.id, ...updates };
+        console.log("Sending request to /api/update-profile with body:", requestBody);
+        console.log("JSON stringified body:", JSON.stringify(requestBody));
+        
         response = await fetch("/api/update-profile", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ userId: currentUser.id, ...updates }),
+          body: JSON.stringify(requestBody),
         });
       } else {
         response = await fetch(`/api/user/${currentUser.id}`, {
@@ -311,6 +320,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Update session based on environment
       if (isBoltEnv) {
         setCustomSession({ user: updatedUser });
+        
+        // If we just completed onboarding, double-check by refetching the user
+        if (updates.onboardingCompleted === true) {
+          console.log('Onboarding was completed, waiting and refetching user profile...');
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+          await fetchUserProfile(updatedUser.id);
+        }
       } else {
         // Update the session if onboarding status changed
         if (updates.onboardingCompleted !== undefined) {
@@ -342,7 +358,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
     
-    await updateProfile({ ...data, onboardingCompleted: true });
+    const updateData = { ...data, onboardingCompleted: true };
+    console.log('Data being passed to updateProfile:', updateData);
+    console.log('onboardingCompleted value:', updateData.onboardingCompleted);
+    await updateProfile(updateData);
   };
 
   const resendVerificationEmail = async (): Promise<{ success: boolean; error?: string }> => {

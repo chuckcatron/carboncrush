@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { CheckCircle, XCircle, Loader2, Mail } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-export default function VerifyEmailPage() {
+function VerifyEmailForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const token = searchParams?.get('token');
@@ -134,5 +134,25 @@ export default function VerifyEmailPage() {
         </div>
       </motion.div>
     </div>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-100 flex items-center justify-center p-4">
+        <div className="card text-center">
+          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Loading</h2>
+          <p className="text-slate-600">
+            Please wait...
+          </p>
+        </div>
+      </div>
+    }>
+      <VerifyEmailForm />
+    </Suspense>
   );
 }

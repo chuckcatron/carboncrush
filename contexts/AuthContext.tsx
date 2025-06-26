@@ -244,13 +244,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const updateProfile = async (updates: Partial<User>): Promise<void> => {
-    if (!user) {
+    let currentUser = user;
+    
+    // If user is not available but we have session data, try to get user from session
+    if (!currentUser && (customSession?.user || session?.user)) {
+      currentUser = customSession?.user || session?.user;
+      console.log("Using session user for profile update:", currentUser);
+    }
+    
+    if (!currentUser) {
       console.error("No user available for profile update");
+      console.error("User state:", user);
+      console.error("Session state:", isBoltEnv ? customSession : session);
       return;
     }
 
     try {
-      console.log("Updating profile for user:", user.id, "with updates:", updates);
+      console.log("Updating profile for user:", currentUser.id, "with updates:", updates);
       console.log("Current isBoltEnv:", isBoltEnv);
 
       // Use different endpoint for Bolt environment to avoid middleware interference
@@ -262,10 +272,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ userId: user.id, ...updates }),
+          body: JSON.stringify({ userId: currentUser.id, ...updates }),
         });
       } else {
-        response = await fetch(`/api/user/${user.id}`, {
+        response = await fetch(`/api/user/${currentUser.id}`, {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
@@ -319,6 +329,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const completeOnboarding = async (data: Partial<User>): Promise<void> => {
     console.log("Completing onboarding with data:", data);
+    console.log("Current user state:", user);
+    console.log("Current session state:", isBoltEnv ? customSession : session);
+    
+    // If user is not available but we have session data, try to get user from session
+    if (!user && (customSession?.user || session?.user)) {
+      const sessionUser = customSession?.user || session?.user;
+      console.log("No user state but session available, setting user from session:", sessionUser);
+      setUser(sessionUser);
+      
+      // Wait a brief moment for state update
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
     await updateProfile({ ...data, onboardingCompleted: true });
   };
 

@@ -143,7 +143,7 @@ export default function LandingPage() {
               <Link href="/auth" className="btn-secondary">
                 Sign In
               </Link>
-              <Link href="/auth" className="btn-primary">
+              <Link href="/onboarding" className="btn-primary">
                 Get Started Free
               </Link>
             </motion.div>
@@ -180,7 +180,7 @@ export default function LandingPage() {
               </div>
               
               <div className="flex flex-col sm:flex-row gap-4 mb-8">
-                <Link href="/auth" className="btn-primary text-lg py-4 px-8 flex items-center justify-center space-x-2">
+                <Link href="/onboarding" className="btn-primary text-lg py-4 px-8 flex items-center justify-center space-x-2">
                   <span>Start Your Journey</span>
                   <ArrowRight className="w-5 h-5" />
                 </Link>
@@ -474,7 +474,7 @@ export default function LandingPage() {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/auth" className="bg-white text-emerald-600 hover:bg-emerald-50 font-semibold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 flex items-center justify-center space-x-2">
+              <Link href="/onboarding" className="bg-white text-emerald-600 hover:bg-emerald-50 font-semibold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 flex items-center justify-center space-x-2">
                 <span>Get Started Free</span>
                 <ArrowRight className="w-5 h-5" />
               </Link>

@@ -4,7 +4,9 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronRight, ChevronLeft } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import toast from 'react-hot-toast';
 import WelcomeStep from './WelcomeStep';
+import AccountSetupStep from './AccountSetupStep';
 import PersonalInfoStep from './PersonalInfoStep';
 import CarbonGoalStep from './CarbonGoalStep';
 import CompletionStep from './CompletionStep';
@@ -12,16 +14,22 @@ import CompletionStep from './CompletionStep';
 export default function OnboardingFlow() {
   const [currentStep, setCurrentStep] = useState(0);
   const [onboardingData, setOnboardingData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    accountCreated: false,
     location: '',
     carbonGoal: 2000,
     interests: [] as string[],
     transportMode: '',
     householdSize: 1
   });
-  const { completeOnboarding } = useAuth();
+  const { completeOnboarding, signup } = useAuth();
 
   const steps = [
     { component: WelcomeStep, title: 'Welcome' },
+    { component: AccountSetupStep, title: 'Account Setup' },
     { component: PersonalInfoStep, title: 'Personal Info' },
     { component: CarbonGoalStep, title: 'Carbon Goal' },
     { component: CompletionStep, title: 'Complete' }
@@ -39,8 +47,30 @@ export default function OnboardingFlow() {
     }
   };
 
-  const handleComplete = () => {
-    completeOnboarding(onboardingData);
+  const handleComplete = async () => {
+    try {
+      // Create account if not already created
+      if (!onboardingData.accountCreated && onboardingData.email && onboardingData.password) {
+        toast.loading('Creating your account...');
+        const result = await signup(onboardingData.email, onboardingData.password, onboardingData.name);
+        
+        if (!result.success) {
+          toast.dismiss();
+          toast.error(result.error || 'Failed to create account');
+          return;
+        }
+        
+        toast.dismiss();
+        toast.success('Account created successfully!');
+      }
+      
+      // Complete onboarding with profile data (excluding password)
+      const { password, confirmPassword, accountCreated, ...profileData } = onboardingData;
+      await completeOnboarding(profileData);
+    } catch (error) {
+      console.error('Error completing onboarding:', error);
+      toast.error('Failed to complete onboarding. Please try again.');
+    }
   };
 
   const updateOnboardingData = (data: Partial<typeof onboardingData>) => {

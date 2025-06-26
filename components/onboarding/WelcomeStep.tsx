@@ -43,7 +43,7 @@ export default function WelcomeStep({ onNext }: WelcomeStepProps) {
       </motion.div>
 
       <h1 className="text-3xl font-bold gradient-text mb-2">
-        Welcome to CarbonCrush, {user?.name?.split(' ')[0]}! 🌱
+        Welcome to CarbonCrush! 🌱
       </h1>
       
       <p className="text-slate-600 mb-8 text-lg">

@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@supabase/supabase-js';
 import jwt from 'jsonwebtoken';
+import { generateAIRecommendations, hasAvailableProvider, getAvailableProviders, type AIProvider } from '@/lib/ai-providers';
 
 // Force Node.js runtime for JWT and crypto support
 export const runtime = 'nodejs';
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+// AI provider clients are now handled in the ai-providers module
 
 async function getAuthenticatedUser(request: NextRequest) {
   // Try custom auth token first (for Bolt environment)
@@ -51,13 +49,21 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    // Check if this is just a provider check request
+    if (requestData.checkProviders) {
+      return NextResponse.json({ 
+        availableProviders: getAvailableProviders()
+      });
+    }
+
     ({ carbonData, results } = requestData);
-    const { userProfile, saveToDatabase = false } = requestData;
+    const { userProfile, saveToDatabase = false, provider } = requestData;
     console.log('Request data received:', { 
       hasCarbonData: !!carbonData, 
       hasResults: !!results, 
       userProfile, 
-      saveToDatabase 
+      saveToDatabase,
+      requestedProvider: provider
     });
 
     if (!carbonData || !results) {
@@ -68,25 +74,90 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Temporarily skip AI generation and use fallback to isolate the issue
-    console.log('Skipping AI generation, using fallback recommendations');
-    const recommendations = generateFallbackRecommendations(carbonData, results);
-    console.log('Generated fallback recommendations:', recommendations.length);
-
-    // Save to database if requested and user is authenticated
-    if (saveToDatabase) {
-      const authenticatedUser = await getAuthenticatedUser(request);
-      console.log('Authenticated user:', authenticatedUser);
+    // Check if AI providers are available
+    if (!hasAvailableProvider()) {
+      console.log('No AI providers available, using fallback recommendations');
+      const recommendations = generateFallbackRecommendations(carbonData, results);
+      console.log('Generated fallback recommendations:', recommendations.length);
       
-      if (authenticatedUser) {
-        await saveRecommendationsToDatabase(authenticatedUser.id, recommendations);
-      } else {
-        console.log('No authenticated user found - not saving to database');
+      // Save to database if requested and user is authenticated
+      if (saveToDatabase) {
+        const authenticatedUser = await getAuthenticatedUser(request);
+        console.log('Authenticated user:', authenticatedUser);
+        
+        if (authenticatedUser) {
+          await saveRecommendationsToDatabase(authenticatedUser.id, recommendations);
+        } else {
+          console.log('No authenticated user found - not saving to database');
+        }
       }
+
+      console.log('API completing successfully with fallback');
+      return NextResponse.json({ 
+        recommendations,
+        provider: 'fallback',
+        availableProviders: getAvailableProviders()
+      });
     }
 
-    console.log('API completing successfully');
-    return NextResponse.json({ recommendations });
+    // Use AI providers
+    try {
+      console.log('Generating AI recommendations');
+      const aiResponse = await generateAIRecommendations({
+        carbonData,
+        results,
+        userProfile,
+        provider: provider as AIProvider
+      });
+      
+      console.log(`Generated ${aiResponse.recommendations.length} recommendations using ${aiResponse.provider} in ${aiResponse.processingTime}ms`);
+      
+      // Save to database if requested and user is authenticated
+      if (saveToDatabase) {
+        const authenticatedUser = await getAuthenticatedUser(request);
+        console.log('Authenticated user:', authenticatedUser);
+        
+        if (authenticatedUser) {
+          await saveRecommendationsToDatabase(authenticatedUser.id, aiResponse.recommendations);
+        } else {
+          console.log('No authenticated user found - not saving to database');
+        }
+      }
+
+      console.log('API completing successfully with AI');
+      return NextResponse.json({ 
+        recommendations: aiResponse.recommendations,
+        provider: aiResponse.provider,
+        model: aiResponse.model,
+        processingTime: aiResponse.processingTime,
+        availableProviders: getAvailableProviders()
+      });
+      
+    } catch (aiError) {
+      console.error('AI generation failed, falling back to static recommendations:', aiError);
+      const recommendations = generateFallbackRecommendations(carbonData, results);
+      console.log('Generated fallback recommendations after AI failure:', recommendations.length);
+
+      // Save to database if requested and user is authenticated
+      if (saveToDatabase) {
+        const authenticatedUser = await getAuthenticatedUser(request);
+        console.log('Authenticated user:', authenticatedUser);
+        
+        if (authenticatedUser) {
+          await saveRecommendationsToDatabase(authenticatedUser.id, recommendations);
+        } else {
+          console.log('No authenticated user found - not saving to database');
+        }
+      }
+
+      console.log('API completing successfully with fallback after AI error');
+      return NextResponse.json({ 
+        recommendations,
+        provider: 'fallback',
+        error: 'AI generation failed',
+        availableProviders: getAvailableProviders()
+      });
+    }
   } catch (error) {
     console.error('=== ERROR IN RECOMMENDATIONS API ===');
     console.error('Error type:', (error as any)?.constructor?.name);
@@ -202,88 +273,6 @@ async function saveRecommendationsToDatabase(userId: string, recommendations: an
   }
 }
 
-async function generateAIRecommendations(carbonData: any, results: any, userProfile: any) {
-  const prompt = `You are an expert climate advisor helping someone reduce their carbon footprint. Analyze their data and provide personalized recommendations.
-
-User Profile:
-- Location: ${userProfile?.location || 'Not specified'}
-- Household size: ${userProfile?.householdSize || 1}
-- Carbon goal: ${userProfile?.carbonGoal ? (userProfile.carbonGoal / 1000).toFixed(1) + ' tons/year' : 'Not set'}
-
-Current Carbon Footprint: ${results.total.toFixed(1)} tons CO2/year
-Breakdown:
-- Transportation: ${results.breakdown.transportation.toFixed(1)} tons (${((results.breakdown.transportation / results.total) * 100).toFixed(0)}%)
-- Energy: ${results.breakdown.energy.toFixed(1)} tons (${((results.breakdown.energy / results.total) * 100).toFixed(0)}%)
-- Food: ${results.breakdown.food.toFixed(1)} tons (${((results.breakdown.food / results.total) * 100).toFixed(0)}%)
-- Shopping: ${results.breakdown.shopping.toFixed(1)} tons (${((results.breakdown.shopping / results.total) * 100).toFixed(0)}%)
-- Waste: ${results.breakdown.waste.toFixed(1)} tons (${((results.breakdown.waste / results.total) * 100).toFixed(0)}%)
-
-Transportation Details:
-- Car miles/week: ${carbonData.transportation.carMiles}
-- Car type: ${carbonData.transportation.carType}
-- Flight hours/year: ${carbonData.transportation.flightHours}
-
-Energy Details:
-- Home size: ${carbonData.energy.homeSize}
-- Monthly electricity bill: $${carbonData.energy.electricityBill}
-- Heating type: ${carbonData.energy.heatingType}
-- Uses renewable energy: ${carbonData.energy.renewableEnergy ? 'Yes' : 'No'}
-
-Food Details:
-- Diet type: ${carbonData.food.dietType}
-- Meat meals/week: ${carbonData.food.meatMealsPerWeek}
-- Local food: ${carbonData.food.localFoodPercentage}%
-- Food waste: ${carbonData.food.foodWastePercentage}%
-
-Please provide exactly 6 recommendations in this JSON format:
-{
-  "recommendations": [
-    {
-      "id": "unique-id",
-      "title": "Clear, actionable title",
-      "description": "Detailed explanation of the action",
-      "category": "transportation|energy|food|shopping|waste",
-      "difficulty": "easy|medium|hard",
-      "timeframe": "immediate|1-4 weeks|1-3 months|3-6 months",
-      "estimatedReduction": "X.X tons CO2/year",
-      "costSavings": "$X/year or $0 if no savings",
-      "steps": [
-        "Step 1: Specific action",
-        "Step 2: Next action",
-        "Step 3: Final action"
-      ],
-      "tips": "Helpful tip for implementation"
-    }
-  ]
-}
-
-Focus on the highest impact categories first. Make recommendations specific, achievable, and personalized to their situation. Include cost savings when applicable.`;
-
-  const message = await anthropic.messages.create({
-    model: "claude-3-sonnet-20240229",
-    max_tokens: 2000,
-    temperature: 0.7,
-    messages: [
-      {
-        role: "user",
-        content: prompt
-      }
-    ]
-  });
-
-  const response = message.content[0];
-  if (response.type !== 'text') {
-    throw new Error('Unexpected response type from Claude');
-  }
-
-  try {
-    const parsed = JSON.parse(response.text);
-    return parsed.recommendations;
-  } catch (parseError) {
-    console.error('Error parsing AI response:', parseError);
-    throw new Error('Invalid AI response format');
-  }
-}
 
 function generateFallbackRecommendations(carbonData: any, results: any) {
   const recommendations = [];
